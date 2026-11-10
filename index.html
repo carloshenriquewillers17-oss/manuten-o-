@@ -7,7 +7,7 @@
   <meta name="description" content="DMV Engenharia - Gestão de Geradores">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=4">
   <title>DMV Engenharia | Gestão de Geradores</title>
 </head>
 <body>
@@ -63,43 +63,130 @@
             <article class="stat-card"><span class="stat-label">Baterias registradas</span><strong id="count-batteries">—</strong><small>Instaladas e em estoque</small></article>
           </div>
           <div class="panel"><div class="panel-heading"><div><h3>Manutenções recentes</h3><p class="muted">Últimas ordens registradas no sistema.</p></div><button class="btn btn-outline" data-goto="manutencoes">Ver manutenções</button></div><div id="recent-maintenance" class="empty-state">Carregando registros...</div></div>
-          <div class="notice"><strong>Próxima etapa:</strong> configurar os formulários de manutenção, estoque, baterias e abastecimento. O cadastro da frota pode ser feito depois.</div>
         </section>
 
         <section id="page-geradores" class="page hidden">
           <div class="section-toolbar"><div><h3>Geradores</h3><p class="muted">Todos os equipamentos da frota DMV.</p></div><button id="add-generator-button" class="btn btn-primary hidden">+ Novo gerador</button></div>
-          <div class="panel"><div class="table-tools"><input id="generator-search" type="search" placeholder="Buscar por número, marca, modelo ou local..."></div><div class="table-scroll"><table><thead><tr><th>Nº</th><th>Marca / Modelo</th><th>Potência</th><th>Horímetro</th><th>Localização</th><th>Situação</th></tr></thead><tbody id="generators-body"><tr><td colspan="6" class="muted">Carregando...</td></tr></tbody></table></div></div>
+          <div class="panel"><div class="table-tools"><input id="generator-search" type="search" placeholder="Buscar por número, marca, modelo ou local..."></div><div class="table-scroll"><table><thead><tr><th>Nº</th><th>Marca / Modelo</th><th>Potência</th><th>Horímetro</th><th>Localização</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="generators-body"><tr><td colspan="7" class="muted">Carregando...</td></tr></tbody></table></div></div>
         </section>
 
-        <section id="page-manutencoes" class="page hidden"><div class="section-toolbar"><div><h3>Manutenções</h3><p class="muted">Ordens preventivas e corretivas.</p></div></div><div class="panel"><p class="muted">A estrutura do banco já está preparada para ordens de manutenção e fotos. A tela de lançamento será construída na próxima etapa.</p></div></section>
-        <section id="page-estoque" class="page hidden"><div class="section-toolbar"><div><h3>Estoque e peças</h3><p class="muted">Cadastro de peças, entradas e saídas.</p></div></div><div class="panel"><p class="muted">Módulo de estoque preparado no banco. Vamos montar os formulários e o controle de movimentações na próxima etapa.</p></div></section>
-        <section id="page-baterias" class="page hidden"><div class="section-toolbar"><div><h3>Baterias</h3><p class="muted">Séries, instalação e garantia.</p></div></div><div class="panel"><p class="muted">Módulo de baterias preparado no banco. O cadastro será implementado na próxima etapa.</p></div></section>
-        <section id="page-abastecimentos" class="page hidden"><div class="section-toolbar"><div><h3>Abastecimentos</h3><p class="muted">Registro de litros, valores, local e horímetro.</p></div></div><div class="panel"><p class="muted">Módulo de abastecimento preparado no banco. O formulário será implementado na próxima etapa.</p></div></section>
-        <section id="page-alugueis" class="page hidden"><div class="section-toolbar"><div><h3>Locações</h3><p class="muted">Saída e retorno dos geradores.</p></div></div><div class="panel"><p class="muted">Módulo de locações preparado no banco. O formulário será implementado na próxima etapa.</p></div></section>
+        <section id="page-manutencoes" class="page hidden">
+          <div class="section-toolbar"><div><h3>Manutenções</h3><p class="muted">Abra ordens, registre serviços, peças e fotos antes, durante e depois.</p></div><button id="add-maintenance-button" class="btn btn-primary">+ Nova manutenção</button></div>
+          <div class="panel preventive-panel"><div class="panel-heading"><div><h3>Preventivas da frota</h3><p class="muted">Intervalo de 250 horas ou 6 meses, o que ocorrer primeiro. Aviso 15 dias antes do limite por data.</p></div></div><div id="preventive-alerts" class="preventive-alerts"><div class="empty-state">Carregando situação das preventivas...</div></div></div>
+          <div class="panel"><div class="table-tools"><input id="maintenance-search" type="search" placeholder="Buscar por OS, gerador ou descrição..."></div><div class="table-scroll"><table><thead><tr><th>OS</th><th>Gerador</th><th>Tipo</th><th>Data</th><th>Horímetro</th><th>Status</th><th>Ações</th></tr></thead><tbody id="maintenance-body"><tr><td colspan="7" class="muted">Carregando...</td></tr></tbody></table></div></div>
+        </section>
+
+        <section id="page-estoque" class="page hidden">
+          <div class="section-toolbar"><div><h3>Estoque e peças</h3><p class="muted">Cadastre filtros, correias, lubrificantes e demais peças; registre entradas e saídas.</p></div><div class="toolbar-actions"><button id="add-movement-button" class="btn btn-outline">Movimentar estoque</button><button id="add-part-button" class="btn btn-primary">+ Nova peça</button></div></div>
+          <div class="panel"><div class="table-tools"><input id="part-search" type="search" placeholder="Buscar por código, peça, marca ou categoria..."></div><div class="table-scroll"><table><thead><tr><th>Código</th><th>Peça</th><th>Categoria</th><th>Marca / Fabricante</th><th>Estoque</th><th>Estoque mínimo</th><th>Ações</th></tr></thead><tbody id="parts-body"><tr><td colspan="7" class="muted">Carregando...</td></tr></tbody></table></div></div>
+        </section>
+
+        <section id="page-baterias" class="page hidden">
+          <div class="section-toolbar"><div><h3>Baterias</h3><p class="muted">Controle de número de série, instalação, capacidade e garantia.</p></div><button id="add-battery-button" class="btn btn-primary">+ Nova bateria</button></div>
+          <div class="panel"><div class="table-tools"><input id="battery-search" type="search" placeholder="Buscar por série, marca, modelo ou gerador..."></div><div class="table-scroll"><table><thead><tr><th>Bateria</th><th>Nº de série</th><th>Gerador</th><th>Capacidade</th><th>Instalação</th><th>Fim da garantia</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="batteries-body"><tr><td colspan="8" class="muted">Carregando...</td></tr></tbody></table></div></div>
+        </section>
+
+        <section id="page-abastecimentos" class="page hidden"><div class="section-toolbar"><div><h3>Abastecimentos</h3><p class="muted">Registro de litros, valores, local e horímetro.</p></div></div><div class="panel"><p class="muted">O formulário de abastecimento será disponibilizado em uma próxima atualização.</p></div></section>
+        <section id="page-alugueis" class="page hidden"><div class="section-toolbar"><div><h3>Locações</h3><p class="muted">Saída e retorno dos geradores.</p></div></div><div class="panel"><p class="muted">O formulário de locações será disponibilizado em uma próxima atualização.</p></div></section>
       </div>
     </section>
   </div>
 
-  <dialog id="generator-dialog" class="modal">
-    <form id="generator-form" method="dialog">
-      <div class="modal-header"><div><span class="eyebrow">FROTA DMV</span><h3>Novo gerador</h3></div><button type="button" class="icon-button" id="close-generator-dialog" aria-label="Fechar">×</button></div>
-      <div class="form-grid">
-        <div><label for="g-number">Número da máquina *</label><input id="g-number" required maxlength="40" placeholder="Ex.: 20"></div>
-        <div><label for="g-power">Potência (kVA)</label><input id="g-power" type="number" min="0" step="0.01" placeholder="Ex.: 120"></div>
-        <div><label for="g-brand">Marca</label><input id="g-brand" placeholder="Marca"></div>
-        <div><label for="g-model">Modelo</label><input id="g-model" placeholder="Modelo"></div>
-        <div><label for="g-year">Ano</label><input id="g-year" placeholder="Ano"></div>
-        <div><label for="g-hours">Horímetro atual</label><input id="g-hours" type="number" min="0" step="0.1" value="0"></div>
-        <div class="span-2"><label for="g-serial">Número de série</label><input id="g-serial" placeholder="Número de série do gerador"></div>
-        <div class="span-2"><label for="g-location">Localização</label><input id="g-location" placeholder="Empresa, obra ou cliente"></div>
-        <div><label for="g-status">Situação</label><select id="g-status"><option value="disponivel">Disponível</option><option value="alugado">Alugado</option><option value="em_manutencao">Em manutenção</option><option value="inativo">Inativo</option></select></div>
+  <dialog id="generator-dialog" class="modal"><form id="generator-form" method="dialog">
+    <div class="modal-header"><div><span class="eyebrow">FROTA DMV</span><h3 id="generator-dialog-title">Novo gerador</h3></div><button type="button" class="icon-button" id="close-generator-dialog">×</button></div>
+    <div class="form-grid">
+      <div><label for="g-number">Número da máquina *</label><input id="g-number" required maxlength="40" placeholder="Ex.: 20"></div>
+      <div><label for="g-power">Potência (kVA)</label><input id="g-power" type="number" min="0" step="0.01" placeholder="Ex.: 120"></div>
+      <div><label for="g-brand">Marca</label><input id="g-brand" placeholder="Marca"></div>
+      <div><label for="g-model">Modelo</label><input id="g-model" placeholder="Modelo"></div>
+      <div><label for="g-year">Ano</label><input id="g-year" placeholder="Ano"></div>
+      <div><label for="g-hours">Horímetro atual</label><input id="g-hours" type="number" min="0" step="0.1" value="0"></div>
+      <div class="span-2"><label for="g-serial">Número de série</label><input id="g-serial" placeholder="Número de série do gerador"></div>
+      <div class="span-2"><label for="g-location">Localização</label><input id="g-location" placeholder="Empresa, obra ou cliente"></div>
+      <div><label for="g-status">Situação</label><select id="g-status"><option value="disponivel">Disponível</option><option value="alugado">Alugado</option><option value="em_manutencao">Em manutenção</option><option value="inativo">Inativo</option></select></div>
+    </div>
+    <div class="modal-actions"><button type="button" class="btn btn-outline" id="cancel-generator">Cancelar</button><button type="submit" class="btn btn-primary" id="save-generator">Salvar gerador</button></div><p id="generator-error" class="form-message"></p>
+  </form></dialog>
+
+  <dialog id="maintenance-dialog" class="modal modal-wide"><form id="maintenance-form" method="dialog">
+    <div class="modal-header"><div><span class="eyebrow">ORDEM DE SERVIÇO</span><h3>Nova manutenção</h3></div><button type="button" class="icon-button" data-close-dialog="maintenance-dialog">×</button></div>
+    <div class="form-grid">
+      <div><label for="m-generator">Gerador *</label><select id="m-generator" required></select></div>
+      <div><label for="m-type">Tipo *</label><select id="m-type"><option value="preventiva">Preventiva</option><option value="corretiva">Corretiva</option></select></div>
+      <div><label for="m-hours">Horímetro *</label><input id="m-hours" type="number" min="0" step="0.1" required></div>
+      <div><label for="m-date">Data da manutenção</label><input id="m-date" type="date"></div>
+      <div class="span-2"><label for="m-description">Descrição do problema / serviço *</label><textarea id="m-description" rows="3" required placeholder="Descreva o serviço, defeito ou revisão realizada..."></textarea></div>
+      <div class="span-2"><label for="m-services">Serviços realizados</label><textarea id="m-services" rows="2" placeholder="Ex.: troca dos filtros, limpeza, testes..."></textarea></div>
+      <div class="span-2"><label for="m-notes">Observações</label><textarea id="m-notes" rows="2" placeholder="Informações adicionais"></textarea></div>
+    </div>
+    <div class="subsection"><h4>Peças utilizadas (opcional)</h4><p class="muted small-text">Ao salvar, a quantidade será baixada do estoque.</p>
+      <div class="inline-fields"><select id="m-part-select"></select><input id="m-part-quantity" type="number" min="0.01" step="0.01" value="1" aria-label="Quantidade de peças"><button type="button" id="m-add-part" class="btn btn-outline">Adicionar</button></div>
+      <div id="m-selected-parts" class="selected-list empty-state">Nenhuma peça adicionada.</div>
+    </div>
+    <div class="subsection"><h4>Fotos da manutenção</h4><p class="muted small-text">Máximo de 10 MB por foto. Tipos aceitos: JPG, PNG e WEBP.</p>
+      <div class="form-grid photo-grid">
+        <div><label for="m-photos-before">Antes</label><input id="m-photos-before" type="file" accept="image/jpeg,image/png,image/webp" multiple></div>
+        <div><label for="m-photos-during">Durante</label><input id="m-photos-during" type="file" accept="image/jpeg,image/png,image/webp" multiple></div>
+        <div><label for="m-photos-after">Depois</label><input id="m-photos-after" type="file" accept="image/jpeg,image/png,image/webp" multiple></div>
       </div>
-      <div class="modal-actions"><button type="button" class="btn btn-outline" id="cancel-generator">Cancelar</button><button type="submit" class="btn btn-primary" id="save-generator">Salvar gerador</button></div>
-      <p id="generator-error" class="form-message"></p>
-    </form>
-  </dialog>
+    </div>
+    <div class="modal-actions"><button type="button" class="btn btn-outline" data-close-dialog="maintenance-dialog">Cancelar</button><button type="submit" class="btn btn-primary" id="save-maintenance">Salvar manutenção</button></div><p id="maintenance-error" class="form-message"></p>
+  </form></dialog>
+
+  <dialog id="part-dialog" class="modal"><form id="part-form" method="dialog">
+    <div class="modal-header"><div><span class="eyebrow">ALMOXARIFADO DMV</span><h3 id="part-dialog-title">Nova peça</h3></div><button type="button" class="icon-button" data-close-dialog="part-dialog">×</button></div>
+    <div class="form-grid">
+      <div><label for="p-code">Código</label><input id="p-code" placeholder="Código da peça"></div>
+      <div><label for="p-name">Nome da peça *</label><input id="p-name" required placeholder="Ex.: Filtro lubrificante"></div>
+      <div><label for="p-category">Categoria</label><select id="p-category"><option value="filtro_oleo">Filtro de óleo</option><option value="filtro_combustivel">Filtro de combustível</option><option value="filtro_racor">Filtro Racor</option><option value="filtro_ar">Filtro de ar</option><option value="correia">Correia</option><option value="lubrificante">Lubrificante</option><option value="bateria">Bateria</option><option value="outros">Outros</option></select></div>
+      <div><label for="p-brand">Marca</label><input id="p-brand" placeholder="Marca"></div>
+      <div><label for="p-manufacturer">Fabricante</label><input id="p-manufacturer" placeholder="Fabricante"></div>
+      <div><label for="p-unit">Unidade</label><select id="p-unit"><option value="un">Unidade</option><option value="l">Litro</option><option value="kg">Kg</option><option value="jogo">Jogo</option><option value="par">Par</option></select></div>
+      <div><label for="p-stock">Quantidade inicial</label><input id="p-stock" type="number" min="0" step="0.01" value="0"></div>
+      <div><label for="p-minimum">Estoque mínimo</label><input id="p-minimum" type="number" min="0" step="0.01" value="0"></div>
+      <div><label for="p-cost">Custo unitário (R$)</label><input id="p-cost" type="number" min="0" step="0.01"></div>
+      <div><label for="p-supplier">Fornecedor</label><input id="p-supplier" placeholder="Fornecedor habitual"></div>
+    </div>
+    <p id="part-stock-hint" class="muted small-text"></p><div class="modal-actions"><button type="button" class="btn btn-outline" data-close-dialog="part-dialog">Cancelar</button><button type="submit" class="btn btn-primary" id="save-part">Salvar peça</button></div><p id="part-error" class="form-message"></p>
+  </form></dialog>
+
+  <dialog id="movement-dialog" class="modal"><form id="movement-form" method="dialog">
+    <div class="modal-header"><div><span class="eyebrow">CONTROLE DE ESTOQUE</span><h3>Movimentar estoque</h3></div><button type="button" class="icon-button" data-close-dialog="movement-dialog">×</button></div>
+    <div class="form-grid">
+      <div class="span-2"><label for="mv-part">Peça *</label><select id="mv-part" required></select></div>
+      <div><label for="mv-type">Operação *</label><select id="mv-type"><option value="entrada">Entrada (compra)</option><option value="saida">Saída</option><option value="ajuste">Ajustar saldo</option></select></div>
+      <div><label for="mv-quantity">Quantidade *</label><input id="mv-quantity" type="number" min="0.01" step="0.01" required></div>
+      <div><label for="mv-cost">Custo unitário (R$)</label><input id="mv-cost" type="number" min="0" step="0.01"></div>
+      <div><label for="mv-supplier">Fornecedor</label><input id="mv-supplier"></div>
+      <div><label for="mv-document">Nota / documento</label><input id="mv-document"></div>
+      <div class="span-2"><label for="mv-note">Observação</label><input id="mv-note"></div>
+    </div>
+    <div class="modal-actions"><button type="button" class="btn btn-outline" data-close-dialog="movement-dialog">Cancelar</button><button type="submit" class="btn btn-primary" id="save-movement">Registrar movimentação</button></div><p id="movement-error" class="form-message"></p>
+  </form></dialog>
+
+  <dialog id="battery-dialog" class="modal"><form id="battery-form" method="dialog">
+    <div class="modal-header"><div><span class="eyebrow">CONTROLE DE BATERIAS</span><h3 id="battery-dialog-title">Nova bateria</h3></div><button type="button" class="icon-button" data-close-dialog="battery-dialog">×</button></div>
+    <div class="form-grid">
+      <div><label for="b-brand">Marca *</label><input id="b-brand" required placeholder="Marca da bateria"></div>
+      <div><label for="b-model">Modelo</label><input id="b-model" placeholder="Modelo"></div>
+      <div class="span-2"><label for="b-serial">Número de série</label><input id="b-serial" placeholder="Número de série"></div>
+      <div><label for="b-ah">Capacidade (Ah)</label><input id="b-ah" type="number" min="0" step="0.1"></div>
+      <div><label for="b-voltage">Tensão (V)</label><input id="b-voltage" type="number" min="0" step="0.1"></div>
+      <div><label for="b-manufactured">Data de fabricação</label><input id="b-manufactured" type="date"></div>
+      <div><label for="b-installed">Data de instalação</label><input id="b-installed" type="date"></div>
+      <div><label for="b-warranty">Fim da garantia</label><input id="b-warranty" type="date"></div>
+      <div><label for="b-status">Situação</label><select id="b-status"><option value="em_estoque">Em estoque</option><option value="instalada">Instalada</option><option value="substituida">Substituída</option><option value="descartada">Descartada</option></select></div>
+      <div class="span-2"><label for="b-generator">Gerador (se instalada)</label><select id="b-generator"></select></div>
+      <div class="span-2"><label for="b-notes">Observações</label><textarea id="b-notes" rows="2"></textarea></div>
+    </div>
+    <div class="modal-actions"><button type="button" class="btn btn-outline" data-close-dialog="battery-dialog">Cancelar</button><button type="submit" class="btn btn-primary" id="save-battery">Salvar bateria</button></div><p id="battery-error" class="form-message"></p>
+  </form></dialog>
+
+  <dialog id="maintenance-detail-dialog" class="modal modal-wide"><div class="modal-content"><div class="modal-header"><div><span class="eyebrow">HISTÓRICO DA ORDEM DE SERVIÇO</span><h3 id="maintenance-detail-title">Detalhes da manutenção</h3></div><button type="button" class="icon-button" data-close-dialog="maintenance-detail-dialog">×</button></div><div id="maintenance-detail-content" class="maintenance-detail-content">Carregando...</div></div></dialog>
+  <dialog id="photos-dialog" class="modal modal-wide"><div class="modal-content"><div class="modal-header"><div><span class="eyebrow">REGISTRO FOTOGRÁFICO</span><h3 id="photos-title">Fotos da manutenção</h3></div><button type="button" class="icon-button" data-close-dialog="photos-dialog">×</button></div><div id="photos-gallery" class="photo-gallery">Carregando fotos...</div></div></dialog>
+
   <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

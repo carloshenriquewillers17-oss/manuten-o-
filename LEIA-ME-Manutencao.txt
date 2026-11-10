@@ -1,0 +1,40 @@
+DMV ENGENHARIA - CONTROLE DE MANUTENCAO
+
+ESTA ATUALIZACAO ADICIONA
+- Painel de preventivas por gerador.
+- Regra de manutencao preventiva: a cada 250 horas ou 6 meses, o que ocorrer primeiro.
+- Aviso por data com 15 dias de antecedencia.
+- Horimetro do gerador atualizado automaticamente quando uma OS registra um valor maior.
+- Consulta detalhada de cada ordem de servico, incluindo descricao, servicos, observacoes e pecas utilizadas.
+- Consulta das fotos da OS pelo detalhe ou pela lista.
+
+PASSO 1 - SUPABASE
+1. Entre no Supabase > SQL Editor > New Query.
+2. Abra o arquivo DMV_controle_manutencao_preventiva.sql deste pacote.
+3. Copie tudo, cole no editor e clique em RUN.
+4. O resultado esperado e: DMV: controle de horimetro e preventiva configurado.
+
+PASSO 2 - GITHUB
+1. Extraia o ZIP.
+2. Abra o repositorio da DMV no GitHub.
+3. Clique em Add file > Upload files.
+4. Envie todos os arquivos desta pasta para a raiz do repositorio, substituindo os anteriores.
+5. Clique em Commit changes e aguarde a execucao do GitHub Actions ficar verde.
+6. Abra o site e pressione Ctrl + F5. No celular, feche e reabra o site para atualizar.
+
+COMO USAR A MANUTENCAO
+1. Entre no aplicativo e abra Manutencoes.
+2. Clique em + Nova manutencao.
+3. Selecione o gerador, tipo preventiva/corretiva, data e horimetro.
+4. Preencha a descricao/defeito, servicos realizados e observacoes.
+5. Se houver pecas, selecione a peca e quantidade. A baixa do estoque ocorre ao salvar a OS.
+6. Anexe fotos nos campos Antes, Durante e Depois.
+7. Clique em Salvar manutencao. A OS fica aberta; use Iniciar e depois Concluir para registrar o andamento.
+8. Use Ver OS para consultar os dados e Fotos para abrir o registro fotografico.
+
+IMPORTANTE
+- Para que a baixa de pecas funcione, as pecas precisam estar cadastradas e ter saldo suficiente.
+- Para fotos, o bucket privado fotos-manutencao e as politicas do Storage devem estar configurados.
+- O primeiro ciclo de preventiva so pode ser calculado automaticamente depois que a ultima preventiva for registrada. Para maquinas sem historico, o painel mostra Sem preventiva registrada.
+- O aviso por calendario aparece 15 dias antes dos 6 meses; quando o horimetro atinge mais 250 horas desde a ultima preventiva, o item aparece como vencido.
+- Esta versao precisa de internet para consultar e salvar no Supabase; ainda nao implementa gravacao offline com sincronizacao.
