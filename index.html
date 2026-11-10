@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10243b">
+  <meta name="description" content="DMV Engenharia - Gestão de Geradores">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <title>DMV Engenharia | Gestão de Geradores</title>
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <main id="login-screen" class="login-wrap">
+    <section class="login-card">
+      <div class="brand-mark">DMV</div>
+      <p class="eyebrow">ENGENHARIA</p>
+      <h1>Gestão de Geradores</h1>
+      <p class="muted">Entre com seu usuário autorizado.</p>
+      <form id="login-form">
+        <label for="email">E-mail</label>
+        <input id="email" name="email" type="email" autocomplete="username" placeholder="seuemail@empresa.com" required>
+        <label for="password">Senha</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" required>
+        <button class="btn btn-primary full" type="submit" id="login-button">Entrar</button>
+      </form>
+      <p id="login-message" class="form-message" aria-live="polite"></p>
+      <p class="tiny muted">Acesso restrito aos usuários cadastrados pela administração.</p>
+    </section>
+  </main>
+
+  <div id="app-shell" class="app-shell hidden">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand"><span class="brand-mini">DMV</span><div><strong>DMV ENGENHARIA</strong><small>Gestão de Geradores</small></div></div>
+      <nav class="main-nav" aria-label="Navegação principal">
+        <button class="nav-link active" data-page="inicio"><span>▦</span> Visão geral</button>
+        <button class="nav-link" data-page="geradores"><span>▤</span> Geradores</button>
+        <button class="nav-link" data-page="manutencoes"><span>⚙</span> Manutenções</button>
+        <button class="nav-link" data-page="estoque"><span>▣</span> Estoque e peças</button>
+        <button class="nav-link" data-page="baterias"><span>▱</span> Baterias</button>
+        <button class="nav-link" data-page="abastecimentos"><span>⛽</span> Abastecimentos</button>
+        <button class="nav-link" data-page="alugueis"><span>⇄</span> Locações</button>
+      </nav>
+      <div class="sidebar-bottom"><span class="connection-dot"></span><span id="connection-label">Configuração pronta</span></div>
+    </aside>
+
+    <section class="main-area">
+      <header class="topbar">
+        <button id="menu-button" class="icon-button mobile-only" aria-label="Abrir menu">☰</button>
+        <div><span class="eyebrow">PAINEL DE CONTROLE</span><h2 id="page-title">Visão geral</h2></div>
+        <div class="user-area"><div class="user-avatar" id="user-avatar">D</div><div class="user-meta"><strong id="user-name">Usuário DMV</strong><small id="user-role">Usuário</small></div><button id="logout-button" class="btn btn-outline">Sair</button></div>
+      </header>
+
+      <div class="content-area">
+        <section id="page-inicio" class="page">
+          <div class="welcome-row"><div><h3>Bem-vindo ao controle da frota</h3><p class="muted">Acompanhe os equipamentos e os registros da DMV Engenharia.</p></div><span id="today-label" class="date-label"></span></div>
+          <div class="stats-grid">
+            <article class="stat-card"><span class="stat-label">Geradores cadastrados</span><strong id="count-generators">—</strong><small>Frota da empresa</small></article>
+            <article class="stat-card"><span class="stat-label">Manutenções abertas</span><strong id="count-open-os">—</strong><small>Ordens em aberto ou andamento</small></article>
+            <article class="stat-card"><span class="stat-label">Peças cadastradas</span><strong id="count-parts">—</strong><small>Itens do estoque</small></article>
+            <article class="stat-card"><span class="stat-label">Baterias registradas</span><strong id="count-batteries">—</strong><small>Instaladas e em estoque</small></article>
+          </div>
+          <div class="panel"><div class="panel-heading"><div><h3>Manutenções recentes</h3><p class="muted">Últimas ordens registradas no sistema.</p></div><button class="btn btn-outline" data-goto="manutencoes">Ver manutenções</button></div><div id="recent-maintenance" class="empty-state">Carregando registros...</div></div>
+          <div class="notice"><strong>Próxima etapa:</strong> configurar os formulários de manutenção, estoque, baterias e abastecimento. O cadastro da frota pode ser feito depois.</div>
+        </section>
+
+        <section id="page-geradores" class="page hidden">
+          <div class="section-toolbar"><div><h3>Geradores</h3><p class="muted">Todos os equipamentos da frota DMV.</p></div><button id="add-generator-button" class="btn btn-primary hidden">+ Novo gerador</button></div>
+          <div class="panel"><div class="table-tools"><input id="generator-search" type="search" placeholder="Buscar por número, marca, modelo ou local..."></div><div class="table-scroll"><table><thead><tr><th>Nº</th><th>Marca / Modelo</th><th>Potência</th><th>Horímetro</th><th>Localização</th><th>Situação</th></tr></thead><tbody id="generators-body"><tr><td colspan="6" class="muted">Carregando...</td></tr></tbody></table></div></div>
+        </section>
+
+        <section id="page-manutencoes" class="page hidden"><div class="section-toolbar"><div><h3>Manutenções</h3><p class="muted">Ordens preventivas e corretivas.</p></div></div><div class="panel"><p class="muted">A estrutura do banco já está preparada para ordens de manutenção e fotos. A tela de lançamento será construída na próxima etapa.</p></div></section>
+        <section id="page-estoque" class="page hidden"><div class="section-toolbar"><div><h3>Estoque e peças</h3><p class="muted">Cadastro de peças, entradas e saídas.</p></div></div><div class="panel"><p class="muted">Módulo de estoque preparado no banco. Vamos montar os formulários e o controle de movimentações na próxima etapa.</p></div></section>
+        <section id="page-baterias" class="page hidden"><div class="section-toolbar"><div><h3>Baterias</h3><p class="muted">Séries, instalação e garantia.</p></div></div><div class="panel"><p class="muted">Módulo de baterias preparado no banco. O cadastro será implementado na próxima etapa.</p></div></section>
+        <section id="page-abastecimentos" class="page hidden"><div class="section-toolbar"><div><h3>Abastecimentos</h3><p class="muted">Registro de litros, valores, local e horímetro.</p></div></div><div class="panel"><p class="muted">Módulo de abastecimento preparado no banco. O formulário será implementado na próxima etapa.</p></div></section>
+        <section id="page-alugueis" class="page hidden"><div class="section-toolbar"><div><h3>Locações</h3><p class="muted">Saída e retorno dos geradores.</p></div></div><div class="panel"><p class="muted">Módulo de locações preparado no banco. O formulário será implementado na próxima etapa.</p></div></section>
+      </div>
+    </section>
+  </div>
+
+  <dialog id="generator-dialog" class="modal">
+    <form id="generator-form" method="dialog">
+      <div class="modal-header"><div><span class="eyebrow">FROTA DMV</span><h3>Novo gerador</h3></div><button type="button" class="icon-button" id="close-generator-dialog" aria-label="Fechar">×</button></div>
+      <div class="form-grid">
+        <div><label for="g-number">Número da máquina *</label><input id="g-number" required maxlength="40" placeholder="Ex.: 20"></div>
+        <div><label for="g-power">Potência (kVA)</label><input id="g-power" type="number" min="0" step="0.01" placeholder="Ex.: 120"></div>
+        <div><label for="g-brand">Marca</label><input id="g-brand" placeholder="Marca"></div>
+        <div><label for="g-model">Modelo</label><input id="g-model" placeholder="Modelo"></div>
+        <div><label for="g-year">Ano</label><input id="g-year" placeholder="Ano"></div>
+        <div><label for="g-hours">Horímetro atual</label><input id="g-hours" type="number" min="0" step="0.1" value="0"></div>
+        <div class="span-2"><label for="g-serial">Número de série</label><input id="g-serial" placeholder="Número de série do gerador"></div>
+        <div class="span-2"><label for="g-location">Localização</label><input id="g-location" placeholder="Empresa, obra ou cliente"></div>
+        <div><label for="g-status">Situação</label><select id="g-status"><option value="disponivel">Disponível</option><option value="alugado">Alugado</option><option value="em_manutencao">Em manutenção</option><option value="inativo">Inativo</option></select></div>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" id="cancel-generator">Cancelar</button><button type="submit" class="btn btn-primary" id="save-generator">Salvar gerador</button></div>
+      <p id="generator-error" class="form-message"></p>
+    </form>
+  </dialog>
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>

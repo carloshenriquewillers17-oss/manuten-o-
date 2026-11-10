@@ -1,0 +1,10 @@
+{
+  "name": "DMV Engenharia - Gestão de Geradores",
+  "short_name": "DMV Geradores",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f3f6fa",
+  "theme_color": "#10243b",
+  "description": "Gestão da frota de geradores da DMV Engenharia.",
+  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
