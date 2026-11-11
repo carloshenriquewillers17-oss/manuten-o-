@@ -15,7 +15,8 @@
   let editingGeneratorId = null;
   let editingPartId = null;
   let editingBatteryId = null;
-  let maintenanceParts = [];
+  let executionParts = [];
+  let activeExecutionOrderId = null;
 
   const $ = (id) => document.getElementById(id);
   const showToast = (message, kind = 'info') => {
@@ -37,7 +38,8 @@
     return msg;
   };
   const roleLabel = (role) => ({ administrador: 'Administrador', tecnico: 'Técnico', almoxarifado: 'Almoxarifado' }[role] || 'Usuário');
-  const canMaintain = () => ['administrador', 'tecnico'].includes(currentProfile?.papel);
+  const canOpenMaintenance = () => currentProfile?.papel === 'administrador';
+  const canExecuteMaintenance = () => currentProfile?.papel === 'tecnico';
   const canManageParts = () => ['administrador', 'almoxarifado'].includes(currentProfile?.papel);
   const canManageBatteries = () => ['administrador', 'tecnico', 'almoxarifado'].includes(currentProfile?.papel);
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -90,7 +92,9 @@
     $('maintenance-form').addEventListener('submit', saveMaintenance);
     $('maintenance-search').addEventListener('input', renderMaintenance);
     $('maintenance-body').addEventListener('click', handleMaintenanceAction);
-    $('m-add-part').addEventListener('click', addMaintenancePart);
+    $('maintenance-body').addEventListener('keydown', handleMaintenanceRowKeydown);
+    $('e-add-part').addEventListener('click', addExecutionPart);
+    $('execution-form').addEventListener('submit', saveExecution);
 
     $('add-part-button').addEventListener('click', openNewPartDialog);
     $('part-form').addEventListener('submit', savePart);
@@ -162,7 +166,7 @@
     $('add-part-button').classList.toggle('hidden', !canManageParts());
     $('add-movement-button').classList.toggle('hidden', !canManageParts());
     $('add-battery-button').classList.toggle('hidden', !canManageBatteries());
-    $('add-maintenance-button').classList.toggle('hidden', !canMaintain());
+    $('add-maintenance-button').classList.toggle('hidden', !canOpenMaintenance());
   }
 
   async function navigate(page) {
@@ -289,87 +293,179 @@
   async function loadMaintenance() {
     const body = $('maintenance-body'); if (!body) return;
     body.innerHTML = '<tr><td colspan="7" class="muted">Carregando...</td></tr>';
-    const { data, error } = await db.from('ordens_manutencao').select('id,numero_os,gerador_id,tipo,status,data_abertura,data_conclusao,horimetro,descricao,geradores(numero)').order('data_abertura', { ascending: false });
+    const { data, error } = await db.from('ordens_manutencao')
+      .select('id,numero_os,gerador_id,tipo,status,data_abertura,data_conclusao,horimetro,horimetro_final,descricao,servico_solicitado,defeito_provavel,servicos_realizados,observacoes,tecnico_id,created_by,geradores(numero)')
+      .order('data_abertura', { ascending: false });
     if (error) { body.innerHTML = `<tr><td colspan="7" class="error-cell">${escapeHtml(friendlyError(error))}</td></tr>`; return; }
     maintenanceCache = data || []; renderMaintenance();
   }
 
   function renderMaintenance() {
     const query = $('maintenance-search').value.trim().toLocaleLowerCase('pt-BR');
-    const rows = maintenanceCache.filter((m) => [m.numero_os,m.geradores?.numero,m.descricao,m.tipo,m.status].some((v) => String(v || '').toLocaleLowerCase('pt-BR').includes(query)));
+    const rows = maintenanceCache.filter((m) => [m.numero_os,m.geradores?.numero,m.descricao,m.servico_solicitado,m.defeito_provavel,m.tipo,m.status].some((v) => String(v || '').toLocaleLowerCase('pt-BR').includes(query)));
     $('maintenance-body').innerHTML = rows.length ? rows.map((m) => {
-      const actions = [`<button type="button" class="btn btn-outline table-action" data-os-details="${m.id}">Ver OS</button>`, `<button type="button" class="btn btn-outline table-action" data-os-photos="${m.id}">Fotos</button>`];
-      if (canMaintain() && m.status === 'aberta') actions.push(`<button type="button" class="btn btn-outline table-action" data-os-start="${m.id}">Iniciar</button>`);
-      if (canMaintain() && m.status === 'em_andamento') actions.push(`<button type="button" class="btn btn-primary table-action" data-os-finish="${m.id}">Concluir</button>`);
-      return `<tr><td><strong>#${escapeHtml(m.numero_os)}</strong></td><td>${escapeHtml(m.geradores?.numero ? `Gerador ${m.geradores.numero}` : '—')}</td><td>${escapeHtml(m.tipo)}</td><td>${formatDate(m.data_abertura)}</td><td>${formatNumber(m.horimetro)}</td><td><span class="status-pill ${escapeHtml(m.status)}">${escapeHtml(m.status.replace('_',' '))}</span></td><td><div class="table-actions">${actions.join('')}</div></td></tr>`;
-    }).join('') : '<tr><td colspan="7" class="empty-table">Nenhuma manutenção cadastrada.</td></tr>';
+      const canThisTechnicianExecute = canExecuteMaintenance() && ['aberta','em_andamento'].includes(m.status) && (!m.tecnico_id || m.tecnico_id === currentUser.id);
+      const detailLabel = canExecuteMaintenance() ? 'Ver solicitação' : 'Ver OS';
+      const actions = [`<button type="button" class="btn btn-outline table-action" data-os-details="${m.id}">${detailLabel}</button>`, `<button type="button" class="btn btn-outline table-action" data-os-photos="${m.id}">Fotos</button>`];
+      if (canThisTechnicianExecute) actions.push(`<button type="button" class="btn btn-primary table-action" data-os-execute="${m.id}">${m.status === 'aberta' ? 'Atender OS' : 'Continuar OS'}</button>`);
+      const hours = `${formatNumber(m.horimetro)}${m.horimetro_final == null ? '' : ` / ${formatNumber(m.horimetro_final)}`}`;
+      return `<tr class="maintenance-click-row" data-os-row="${m.id}" tabindex="0" role="button" aria-label="Abrir detalhes da OS ${escapeHtml(m.numero_os)}"><td><strong>#${escapeHtml(m.numero_os)}</strong></td><td>${escapeHtml(m.geradores?.numero ? `Gerador ${m.geradores.numero}` : '—')}</td><td>${escapeHtml(m.tipo)}</td><td>${formatDate(m.data_abertura)}</td><td>${hours}</td><td><span class="status-pill ${escapeHtml(m.status)}">${escapeHtml(m.status.replace('_',' '))}</span></td><td><div class="table-actions">${actions.join('')}</div></td></tr>`;
+    }).join('') : '<tr><td colspan="7" class="empty-table">Nenhuma ordem de serviço cadastrada.</td></tr>';
   }
 
   function openMaintenanceDialog() {
-    if (!canMaintain()) return showToast('Seu perfil não pode abrir ordens de manutenção.', 'error');
-    if (!generatorsCache.length) return showToast('Cadastre um gerador antes de abrir uma manutenção.', 'error');
-    maintenanceParts = []; $('maintenance-form').reset(); $('m-date').value = todayISO(); $('m-part-quantity').value = '1'; $('maintenance-error').textContent = ''; populateGeneratorSelects(); renderSelectedMaintenanceParts(); populateMaintenancePartSelect(); $('maintenance-dialog').showModal();
-  }
-
-  function populateMaintenancePartSelect() {
-    $('m-part-select').innerHTML = `<option value="">Selecione uma peça</option>${partsCache.map((p) => `<option value="${p.id}">${escapeHtml(`${p.nome} · estoque ${formatNumber(p.quantidade_estoque,2)} ${p.unidade || 'un'}`)}</option>`).join('')}`;
-  }
-
-  function addMaintenancePart() {
-    const id = $('m-part-select').value; const qty = Number($('m-part-quantity').value);
-    const part = partsCache.find((p) => p.id === id);
-    if (!part) return showToast('Selecione uma peça cadastrada.', 'error');
-    if (!Number.isFinite(qty) || qty <= 0) return showToast('Informe uma quantidade válida.', 'error');
-    const existing = maintenanceParts.find((item) => item.peca_id === id);
-    if (existing) existing.quantidade += qty; else maintenanceParts.push({ peca_id: id, nome: part.nome, unidade: part.unidade || 'un', quantidade: qty, custo_unitario: part.custo_unitario });
-    renderSelectedMaintenanceParts();
-  }
-
-  function renderSelectedMaintenanceParts() {
-    const box = $('m-selected-parts');
-    if (!maintenanceParts.length) { box.className = 'selected-list empty-state'; box.textContent = 'Nenhuma peça adicionada.'; return; }
-    box.className = 'selected-list';
-    box.innerHTML = maintenanceParts.map((item, index) => `<div class="selected-item"><span>${escapeHtml(item.nome)} · ${formatNumber(item.quantidade,2)} ${escapeHtml(item.unidade)}</span><button type="button" class="btn btn-outline table-action" data-remove-maint-part="${index}">Remover</button></div>`).join('');
-    box.querySelectorAll('[data-remove-maint-part]').forEach((button) => button.addEventListener('click', () => { maintenanceParts.splice(Number(button.dataset.removeMaintPart), 1); renderSelectedMaintenanceParts(); }));
+    if (!canOpenMaintenance()) return showToast('Somente o administrador pode abrir uma ordem de serviço.', 'error');
+    if (!generatorsCache.length) return showToast('Cadastre um gerador antes de abrir uma ordem de serviço.', 'error');
+    $('maintenance-form').reset(); $('m-date').value = todayISO(); $('maintenance-error').textContent = '';
+    populateGeneratorSelects(); $('maintenance-dialog').showModal();
   }
 
   async function saveMaintenance(event) {
-    event.preventDefault(); if (!canMaintain()) return;
-    const save = $('save-maintenance'); save.disabled = true; save.textContent = 'Salvando...'; $('maintenance-error').textContent = '';
-    let createdOrder = null;
+    event.preventDefault(); if (!canOpenMaintenance()) return;
+    const save = $('save-maintenance'); save.disabled = true; save.textContent = 'Abrindo OS...'; $('maintenance-error').textContent = '';
     try {
       const generatorId = $('m-generator').value;
-      if (!generatorId) throw new Error('Selecione o gerador da manutenção.');
-      for (const item of maintenanceParts) {
-        const part = partsCache.find((p) => p.id === item.peca_id);
-        if (part && Number(part.quantidade_estoque) < item.quantidade) throw new Error(`Estoque insuficiente para ${part.nome}. Disponível: ${formatNumber(part.quantidade_estoque,2)}.`);
-      }
+      if (!generatorId) throw new Error('Selecione o gerador da ordem de serviço.');
+      const openingHours = Number($('m-hours').value);
+      if (!Number.isFinite(openingHours) || openingHours < 0) throw new Error('Informe um horímetro inicial válido.');
+      const requested = $('m-requested').value.trim();
+      if (!requested) throw new Error('Descreva o que precisa ser feito.');
+      const suspected = $('m-suspected').value.trim() || null;
       const selectedDate = $('m-date').value;
-      const record = { gerador_id: generatorId, tipo: $('m-type').value, status: 'aberta', horimetro: Number($('m-hours').value), descricao: $('m-description').value.trim(), servicos_realizados: $('m-services').value.trim() || null, observacoes: $('m-notes').value.trim() || null, tecnico_id: currentUser.id, created_by: currentUser.id };
+      const record = {
+        gerador_id: generatorId,
+        tipo: $('m-type').value,
+        status: 'aberta',
+        horimetro: openingHours,
+        descricao: requested,
+        servico_solicitado: requested,
+        defeito_provavel: suspected,
+        servicos_realizados: null,
+        observacoes: null,
+        tecnico_id: null,
+        created_by: currentUser.id
+      };
       if (selectedDate) record.data_abertura = new Date(`${selectedDate}T12:00:00`).toISOString();
-      const result = await db.from('ordens_manutencao').insert(record).select('id,numero_os').single();
-      if (result.error) throw result.error;
-      createdOrder = result.data;
-      for (const item of maintenanceParts) {
-        const part = partsCache.find((p) => p.id === item.peca_id);
-        const itemResult = await db.from('itens_manutencao').insert({ ordem_id: createdOrder.id, peca_id: item.peca_id, quantidade: item.quantidade, custo_unitario: item.custo_unitario });
-        if (itemResult.error) throw new Error(`A OS #${createdOrder.numero_os} foi criada, mas não foi possível lançar a peça ${part?.nome || ''}: ${friendlyError(itemResult.error)}`);
-      }
-      const photoSummary = await uploadMaintenancePhotos(createdOrder.id);
-      closeDialog('maintenance-dialog'); $('maintenance-form').reset(); maintenanceParts = [];
-      await Promise.all([loadMaintenance(), loadParts(), loadGenerators(), refreshDashboard()]);
-      showToast(`Manutenção OS #${createdOrder.numero_os} salva.${photoSummary ? ` ${photoSummary}` : ''}`, 'success');
+      const { data, error } = await db.from('ordens_manutencao').insert(record).select('id,numero_os').single();
+      if (error) throw error;
+      closeDialog('maintenance-dialog'); $('maintenance-form').reset();
+      await Promise.all([loadMaintenance(), loadGenerators(), refreshDashboard()]);
+      showToast(`OS #${data.numero_os} aberta e disponível para os técnicos.`, 'success');
     } catch (error) {
       $('maintenance-error').textContent = friendlyError(error); $('maintenance-error').classList.add('error');
-      if (createdOrder) showToast(`A OS #${createdOrder.numero_os} foi criada. Confira os itens/fotos: ${friendlyError(error)}`, 'error');
-    } finally { save.disabled = false; save.textContent = 'Salvar manutenção'; }
+    } finally { save.disabled = false; save.textContent = 'Abrir ordem de serviço'; }
+  }
+
+  function populateMaintenancePartSelect() {
+    const select = $('e-part-select'); if (!select) return;
+    select.innerHTML = `<option value="">Selecione uma peça</option>${partsCache.map((p) => `<option value="${p.id}">${escapeHtml(`${p.nome} · estoque ${formatNumber(p.quantidade_estoque,2)} ${p.unidade || 'un'}`)}</option>`).join('')}`;
+  }
+
+  function addExecutionPart() {
+    const id = $('e-part-select').value; const qty = Number($('e-part-quantity').value);
+    const part = partsCache.find((item) => item.id === id);
+    if (!part) return showToast('Selecione uma peça cadastrada.', 'error');
+    if (!Number.isFinite(qty) || qty <= 0) return showToast('Informe uma quantidade válida.', 'error');
+    const existing = executionParts.find((item) => item.peca_id === id);
+    if (existing) existing.quantidade += qty;
+    else executionParts.push({ peca_id: id, nome: part.nome, unidade: part.unidade || 'un', quantidade: qty, custo_unitario: part.custo_unitario });
+    renderExecutionParts();
+  }
+
+  function renderExecutionParts() {
+    const box = $('e-selected-parts');
+    if (!executionParts.length) { box.className = 'selected-list empty-state'; box.textContent = 'Nenhuma peça adicionada.'; return; }
+    box.className = 'selected-list';
+    box.innerHTML = executionParts.map((item, index) => `<div class="selected-item"><span>${escapeHtml(item.nome)} · ${formatNumber(item.quantidade,2)} ${escapeHtml(item.unidade)}</span><button type="button" class="btn btn-outline table-action" data-remove-execution-part="${index}">Remover</button></div>`).join('');
+    box.querySelectorAll('[data-remove-execution-part]').forEach((button) => button.addEventListener('click', () => { executionParts.splice(Number(button.dataset.removeExecutionPart), 1); renderExecutionParts(); }));
+  }
+
+  async function openExecutionDialog(orderId) {
+    if (!canExecuteMaintenance()) return showToast('Somente o técnico pode registrar a execução da ordem.', 'error');
+    let order = maintenanceCache.find((item) => item.id === orderId);
+    if (!order) return showToast('Ordem de serviço não encontrada. Atualize a lista.', 'error');
+    if (!['aberta','em_andamento'].includes(order.status)) return showToast('Esta ordem não está mais disponível para execução.', 'error');
+    if (order.tecnico_id && order.tecnico_id !== currentUser.id) return showToast('Esta OS já está em atendimento por outro técnico.', 'error');
+
+    if (order.status === 'aberta') {
+      const { data, error } = await db.from('ordens_manutencao')
+        .update({ status: 'em_andamento', tecnico_id: currentUser.id })
+        .eq('id', orderId).eq('status', 'aberta')
+        .select('id');
+      if (error) return showToast(friendlyError(error), 'error');
+      if (!data?.length) { await loadMaintenance(); return showToast('Outro usuário já iniciou esta OS. Atualize a lista.', 'error'); }
+      await loadMaintenance();
+      order = maintenanceCache.find((item) => item.id === orderId) || order;
+    }
+
+    activeExecutionOrderId = orderId; executionParts = [];
+    $('execution-form').reset(); $('execution-error').textContent = '';
+    $('execution-dialog-title').textContent = `Atender OS #${order.numero_os}`;
+    $('execution-order-summary').textContent = `Gerador ${order.geradores?.numero || '—'} · ${order.tipo} · Horímetro inicial: ${formatNumber(order.horimetro)} h`;
+    $('execution-request').textContent = order.servico_solicitado || order.descricao || 'Solicitação não informada.';
+    $('execution-suspected').textContent = order.defeito_provavel || 'Nenhum provável defeito informado.';
+    $('e-final-hours').value = order.horimetro_final ?? '';
+    $('e-finished-date').value = todayISO();
+    $('e-services').value = order.servicos_realizados || '';
+    $('e-notes').value = order.observacoes || '';
+    $('e-part-quantity').value = '1';
+    populateMaintenancePartSelect(); renderExecutionParts();
+    $('execution-dialog').showModal();
+  }
+
+  async function saveExecution(event) {
+    event.preventDefault(); if (!canExecuteMaintenance() || !activeExecutionOrderId) return;
+    const save = $('save-execution'); save.disabled = true; save.textContent = 'Salvando execução...'; $('execution-error').textContent = '';
+    try {
+      const order = maintenanceCache.find((item) => item.id === activeExecutionOrderId);
+      if (!order) throw new Error('Ordem de serviço não encontrada. Atualize a lista.');
+      const finalHours = Number($('e-final-hours').value);
+      if (!Number.isFinite(finalHours) || finalHours < 0) throw new Error('Informe um horímetro final válido.');
+      if (order.horimetro != null && finalHours < Number(order.horimetro)) throw new Error('O horímetro final não pode ser menor que o horímetro inicial.');
+      const services = $('e-services').value.trim();
+      if (!services) throw new Error('Descreva o que foi feito na manutenção.');
+
+      const { data: existingItems, error: existingError } = await db.from('itens_manutencao').select('peca_id').eq('ordem_id', activeExecutionOrderId);
+      if (existingError) throw existingError;
+      const alreadyAdded = new Set((existingItems || []).map((item) => item.peca_id));
+      for (const item of executionParts) {
+        if (alreadyAdded.has(item.peca_id)) continue;
+        const part = partsCache.find((entry) => entry.id === item.peca_id);
+        if (part && Number(part.quantidade_estoque) < item.quantidade) throw new Error(`Estoque insuficiente para ${part.nome}. Disponível: ${formatNumber(part.quantidade_estoque,2)}.`);
+      }
+      for (const item of executionParts) {
+        if (alreadyAdded.has(item.peca_id)) continue;
+        const { error } = await db.from('itens_manutencao').insert({ ordem_id: activeExecutionOrderId, peca_id: item.peca_id, quantidade: item.quantidade, custo_unitario: item.custo_unitario });
+        if (error) throw error;
+        alreadyAdded.add(item.peca_id);
+      }
+
+      const photoSummary = await uploadMaintenancePhotos(activeExecutionOrderId);
+      const patch = {
+        status: 'concluida',
+        tecnico_id: currentUser.id,
+        servicos_realizados: services,
+        observacoes: $('e-notes').value.trim() || null,
+        horimetro_final: finalHours,
+        data_conclusao: new Date().toISOString()
+      };
+      const { error: updateError } = await db.from('ordens_manutencao').update(patch).eq('id', activeExecutionOrderId);
+      if (updateError) throw updateError;
+
+      const orderNo = order.numero_os;
+      closeDialog('execution-dialog'); $('execution-form').reset(); executionParts = []; activeExecutionOrderId = null;
+      await Promise.all([loadMaintenance(), loadParts(), loadGenerators(), refreshDashboard()]);
+      showToast(`OS #${orderNo} concluída. Execução registrada.${photoSummary ? ` ${photoSummary}` : ''}`, 'success');
+    } catch (error) {
+      $('execution-error').textContent = friendlyError(error); $('execution-error').classList.add('error');
+    } finally { save.disabled = false; save.textContent = 'Salvar execução e concluir OS'; }
   }
 
   async function uploadMaintenancePhotos(orderId) {
     const groups = [
-      { id: 'm-photos-before', stage: 'antes' },
-      { id: 'm-photos-during', stage: 'durante' },
-      { id: 'm-photos-after', stage: 'depois' }
+      { id: 'e-photos-before', stage: 'antes' },
+      { id: 'e-photos-during', stage: 'durante' },
+      { id: 'e-photos-after', stage: 'depois' }
     ];
     let uploaded = 0;
     for (const group of groups) {
@@ -391,50 +487,73 @@
   }
 
   async function handleMaintenanceAction(event) {
-    const details = event.target.closest('[data-os-details]');
-    const photos = event.target.closest('[data-os-photos]');
-    const start = event.target.closest('[data-os-start]');
-    const finish = event.target.closest('[data-os-finish]');
-    if (details) await showMaintenanceDetails(details.dataset.osDetails);
-    if (photos) await showMaintenancePhotos(photos.dataset.osPhotos);
-    if (start) await updateMaintenanceStatus(start.dataset.osStart, 'em_andamento');
-    if (finish) await updateMaintenanceStatus(finish.dataset.osFinish, 'concluida');
+    const clicked = event.target instanceof Element ? event.target : event.target?.parentElement;
+    if (!clicked) return;
+    const details = clicked.closest('[data-os-details]');
+    const photos = clicked.closest('[data-os-photos]');
+    const execute = clicked.closest('[data-os-execute]');
+    if (details) { event.preventDefault(); await showMaintenanceDetails(details.dataset.osDetails); return; }
+    if (photos) { event.preventDefault(); await showMaintenancePhotos(photos.dataset.osPhotos); return; }
+    if (execute) { event.preventDefault(); await openExecutionDialog(execute.dataset.osExecute); return; }
+    const row = clicked.closest('[data-os-row]');
+    if (row) await showMaintenanceDetails(row.dataset.osRow);
+  }
+
+  async function handleMaintenanceRowKeydown(event) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const row = event.target instanceof Element ? event.target.closest('[data-os-row]') : null;
+    if (!row) return;
+    event.preventDefault();
+    await showMaintenanceDetails(row.dataset.osRow);
   }
 
   async function showMaintenanceDetails(orderId) {
     const target = $('maintenance-detail-content');
+    const cached = maintenanceCache.find((m) => m.id === orderId);
     target.innerHTML = '<p class="muted">Carregando dados da ordem...</p>';
-    $('maintenance-detail-title').textContent = `Ordem de serviço #${maintenanceCache.find((m) => m.id === orderId)?.numero_os || ''}`;
+    $('maintenance-detail-title').textContent = `Ordem de serviço #${cached?.numero_os || ''}`;
     $('maintenance-detail-dialog').showModal();
-    const { data, error } = await db.from('ordens_manutencao')
-      .select('id,numero_os,tipo,status,data_abertura,data_conclusao,horimetro,descricao,servicos_realizados,observacoes,geradores(numero,marca,modelo,potencia_kva),itens_manutencao(quantidade,custo_unitario,pecas(nome,codigo,unidade))')
-      .eq('id', orderId).single();
-    if (error) { target.textContent = friendlyError(error); return; }
-    const parts = data.itens_manutencao || [];
-    target.innerHTML = `<div class="detail-grid">
-      <div><small>Gerador</small><strong>${escapeHtml(data.geradores?.numero ? `Nº ${data.geradores.numero}` : '—')}</strong><span>${escapeHtml([data.geradores?.marca,data.geradores?.modelo].filter(Boolean).join(' / '))}</span></div>
-      <div><small>Tipo / status</small><strong>${escapeHtml(data.tipo)} · ${escapeHtml(data.status.replaceAll('_',' '))}</strong></div>
-      <div><small>Data de abertura</small><strong>${formatDate(data.data_abertura)}</strong></div>
-      <div><small>Conclusão</small><strong>${formatDate(data.data_conclusao)}</strong></div>
-      <div><small>Horímetro registrado</small><strong>${formatNumber(data.horimetro)} h</strong></div>
-      <div class="detail-wide"><small>Descrição / defeito</small><p>${escapeHtml(data.descricao || '—')}</p></div>
-      <div class="detail-wide"><small>Serviços realizados</small><p>${escapeHtml(data.servicos_realizados || 'Não informado')}</p></div>
-      <div class="detail-wide"><small>Observações</small><p>${escapeHtml(data.observacoes || '—')}</p></div>
-      <div class="detail-wide"><small>Peças utilizadas</small>${parts.length ? `<ul>${parts.map((item) => `<li>${escapeHtml(item.pecas?.nome || 'Peça')} — ${formatNumber(item.quantidade,2)} ${escapeHtml(item.pecas?.unidade || 'un')}${item.pecas?.codigo ? ` · cód. ${escapeHtml(item.pecas.codigo)}` : ''}</li>`).join('')}</ul>` : '<p>Nenhuma peça lançada nesta OS.</p>'}</div>
-    </div><div class="detail-actions"><button type="button" class="btn btn-outline" data-detail-photos="${data.id}">Ver fotos desta OS</button></div>`;
-    target.querySelector('[data-detail-photos]')?.addEventListener('click', () => { closeDialog('maintenance-detail-dialog'); showMaintenancePhotos(orderId); });
-  }
 
-  async function updateMaintenanceStatus(id, status) {
-    const order = maintenanceCache.find((item) => item.id === id); if (!order) return;
-    const prompt = status === 'concluida' ? 'Confirma a conclusão desta manutenção?' : 'Deseja iniciar esta manutenção?';
-    if (!window.confirm(prompt)) return;
-    const patch = { status };
-    if (status === 'concluida') patch.data_conclusao = new Date().toISOString();
-    const { error } = await db.from('ordens_manutencao').update(patch).eq('id', id);
-    if (error) return showToast(friendlyError(error), 'error');
-    await Promise.all([loadMaintenance(), loadGenerators(), refreshDashboard()]);
-    showToast(status === 'concluida' ? 'Manutenção concluída.' : 'Manutenção iniciada.', 'success');
+    try {
+      // Busca primeiro somente a OS e o gerador. Assim a tela não depende de
+      // uma consulta aninhada de peças para conseguir abrir a solicitação.
+      const { data, error } = await db.from('ordens_manutencao')
+        .select('id,numero_os,gerador_id,tipo,status,data_abertura,data_conclusao,horimetro,horimetro_final,descricao,servico_solicitado,defeito_provavel,servicos_realizados,observacoes,tecnico_id,geradores(numero,marca,modelo,potencia_kva)')
+        .eq('id', orderId).single();
+      if (error) throw error;
+
+      let parts = [];
+      const { data: itemRows, error: itemError } = await db.from('itens_manutencao')
+        .select('peca_id,quantidade,custo_unitario').eq('ordem_id', orderId);
+      if (!itemError && itemRows?.length) {
+        const ids = [...new Set(itemRows.map((item) => item.peca_id).filter(Boolean))];
+        const { data: partRows } = await db.from('pecas').select('id,nome,codigo,unidade').in('id', ids);
+        const byId = new Map((partRows || []).map((part) => [part.id, part]));
+        parts = itemRows.map((item) => ({ ...item, pecas: byId.get(item.peca_id) || null }));
+      }
+
+      const canExecuteThisOrder = canExecuteMaintenance() && ['aberta','em_andamento'].includes(data.status) && (!data.tecnico_id || data.tecnico_id === currentUser.id);
+      const executeButton = canExecuteThisOrder
+        ? `<button type="button" class="btn btn-primary" data-detail-execute="${data.id}">${data.status === 'aberta' ? 'Atender esta ordem' : 'Continuar atendimento'}</button>`
+        : '';
+      target.innerHTML = `<div class="detail-grid">
+        <div><small>Gerador</small><strong>${escapeHtml(data.geradores?.numero ? `Nº ${data.geradores.numero}` : '—')}</strong><span>${escapeHtml([data.geradores?.marca,data.geradores?.modelo].filter(Boolean).join(' / '))}</span></div>
+        <div><small>Tipo / status</small><strong>${escapeHtml(data.tipo)} · ${escapeHtml(data.status.replaceAll('_',' '))}</strong></div>
+        <div><small>Data de abertura</small><strong>${formatDate(data.data_abertura)}</strong></div>
+        <div><small>Data de conclusão</small><strong>${formatDate(data.data_conclusao)}</strong></div>
+        <div><small>Horímetro inicial</small><strong>${formatNumber(data.horimetro)} h</strong></div>
+        <div><small>Horímetro final</small><strong>${data.horimetro_final == null ? 'Aguardando técnico' : `${formatNumber(data.horimetro_final)} h`}</strong></div>
+        <div class="detail-wide"><small>O que o administrador solicitou</small><p>${escapeHtml(data.servico_solicitado || data.descricao || '—')}</p></div>
+        <div class="detail-wide"><small>Provável defeito / observação inicial</small><p>${escapeHtml(data.defeito_provavel || 'Não informado')}</p></div>
+        <div class="detail-wide"><small>O que o técnico realizou</small><p>${escapeHtml(data.servicos_realizados || 'Aguardando execução do técnico')}</p></div>
+        <div class="detail-wide"><small>Observações do técnico</small><p>${escapeHtml(data.observacoes || '—')}</p></div>
+        <div class="detail-wide"><small>Peças utilizadas</small>${parts.length ? `<ul>${parts.map((item) => `<li>${escapeHtml(item.pecas?.nome || 'Peça')} — ${formatNumber(item.quantidade,2)} ${escapeHtml(item.pecas?.unidade || 'un')}${item.pecas?.codigo ? ` · cód. ${escapeHtml(item.pecas.codigo)}` : ''}</li>`).join('')}</ul>` : '<p>Nenhuma peça lançada nesta OS.</p>'}</div>
+      </div><div class="detail-actions"><button type="button" class="btn btn-outline" data-detail-photos="${data.id}">Ver fotos desta OS</button>${executeButton}</div>`;
+      target.querySelector('[data-detail-photos]')?.addEventListener('click', () => { closeDialog('maintenance-detail-dialog'); showMaintenancePhotos(orderId); });
+      target.querySelector('[data-detail-execute]')?.addEventListener('click', () => { closeDialog('maintenance-detail-dialog'); openExecutionDialog(orderId); });
+    } catch (error) {
+      target.innerHTML = `<div class="empty-state error-cell">Não foi possível carregar os detalhes desta OS: ${escapeHtml(friendlyError(error))}</div>`;
+    }
   }
 
   async function showMaintenancePhotos(orderId) {

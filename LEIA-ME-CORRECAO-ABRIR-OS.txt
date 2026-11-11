@@ -1,0 +1,22 @@
+DMV ENGENHARIA — CORREÇÃO PARA ABRIR ORDEM DE SERVIÇO (TÉCNICO)
+
+Esta atualização corrige a interação da lista de manutenções:
+- A linha inteira da ordem pode ser tocada/clicada para abrir os detalhes.
+- O botão “Ver solicitação” abre os dados originais do administrador.
+- Dentro dos detalhes, o técnico verá “Atender esta ordem” quando a OS estiver aberta e disponível para ele.
+- O técnico continua sem poder alterar a solicitação original do administrador.
+- Os detalhes da OS são carregados primeiro; peças são consultadas separadamente para evitar que uma relação de peças impeça a abertura da OS.
+- Cache e versão dos arquivos foram atualizados para evitar carregar o JavaScript antigo.
+
+COMO PUBLICAR:
+1. Abra o repositório carloshenriquewillers17-oss/manuten-o-.
+2. Em Code > Add file > Upload files, envie para a raiz do repositório os arquivos:
+   index.html, app.js, styles.css, sw.js, config.js, manifest.json e icon.svg.
+3. Substitua os arquivos de mesmo nome e clique em Commit changes.
+4. Aguarde Actions concluir a publicação.
+5. No celular, feche totalmente a aba do aplicativo e abra novamente o link. No computador, use Ctrl+F5.
+
+IMPORTANTE:
+- Esta é uma atualização da tela, não precisa executar SQL novamente.
+- O técnico precisa estar autenticado com perfil “tecnico” ativo em public.perfis.
+- OS em andamento vinculada a outro técnico não poderá ser assumida por outro usuário. O detalhe continua visível para consulta.

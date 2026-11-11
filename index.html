@@ -7,7 +7,7 @@
   <meta name="description" content="DMV Engenharia - Gestão de Geradores">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=7">
   <title>DMV Engenharia | Gestão de Geradores</title>
 </head>
 <body>
@@ -71,9 +71,9 @@
         </section>
 
         <section id="page-manutencoes" class="page hidden">
-          <div class="section-toolbar"><div><h3>Manutenções</h3><p class="muted">Abra ordens, registre serviços, peças e fotos antes, durante e depois.</p></div><button id="add-maintenance-button" class="btn btn-primary">+ Nova manutenção</button></div>
+          <div class="section-toolbar"><div><h3>Manutenções</h3><p class="muted">O administrador abre a OS; o técnico registra o serviço executado, fotos e horímetro final.</p></div><button id="add-maintenance-button" class="btn btn-primary">+ Nova manutenção</button></div>
           <div class="panel preventive-panel"><div class="panel-heading"><div><h3>Preventivas da frota</h3><p class="muted">Intervalo de 250 horas ou 6 meses, o que ocorrer primeiro. Aviso 15 dias antes do limite por data.</p></div></div><div id="preventive-alerts" class="preventive-alerts"><div class="empty-state">Carregando situação das preventivas...</div></div></div>
-          <div class="panel"><div class="table-tools"><input id="maintenance-search" type="search" placeholder="Buscar por OS, gerador ou descrição..."></div><div class="table-scroll"><table><thead><tr><th>OS</th><th>Gerador</th><th>Tipo</th><th>Data</th><th>Horímetro</th><th>Status</th><th>Ações</th></tr></thead><tbody id="maintenance-body"><tr><td colspan="7" class="muted">Carregando...</td></tr></tbody></table></div></div>
+          <div class="panel"><div class="table-tools"><input id="maintenance-search" type="search" placeholder="Buscar por OS, gerador ou descrição..."></div><div class="table-scroll"><table><thead><tr><th>OS</th><th>Gerador</th><th>Tipo</th><th>Data</th><th>Horímetro inicial / final</th><th>Status</th><th>Ações</th></tr></thead><tbody id="maintenance-body"><tr><td colspan="7" class="muted">Carregando...</td></tr></tbody></table></div></div>
         </section>
 
         <section id="page-estoque" class="page hidden">
@@ -109,28 +109,40 @@
   </form></dialog>
 
   <dialog id="maintenance-dialog" class="modal modal-wide"><form id="maintenance-form" method="dialog">
-    <div class="modal-header"><div><span class="eyebrow">ORDEM DE SERVIÇO</span><h3>Nova manutenção</h3></div><button type="button" class="icon-button" data-close-dialog="maintenance-dialog">×</button></div>
+    <div class="modal-header"><div><span class="eyebrow">ABERTURA DE ORDEM DE SERVIÇO</span><h3>Nova ordem de serviço</h3><p class="muted small-text">Preenchimento exclusivo do administrador.</p></div><button type="button" class="icon-button" data-close-dialog="maintenance-dialog">×</button></div>
     <div class="form-grid">
       <div><label for="m-generator">Gerador *</label><select id="m-generator" required></select></div>
-      <div><label for="m-type">Tipo *</label><select id="m-type"><option value="preventiva">Preventiva</option><option value="corretiva">Corretiva</option></select></div>
-      <div><label for="m-hours">Horímetro *</label><input id="m-hours" type="number" min="0" step="0.1" required></div>
-      <div><label for="m-date">Data da manutenção</label><input id="m-date" type="date"></div>
-      <div class="span-2"><label for="m-description">Descrição do problema / serviço *</label><textarea id="m-description" rows="3" required placeholder="Descreva o serviço, defeito ou revisão realizada..."></textarea></div>
-      <div class="span-2"><label for="m-services">Serviços realizados</label><textarea id="m-services" rows="2" placeholder="Ex.: troca dos filtros, limpeza, testes..."></textarea></div>
-      <div class="span-2"><label for="m-notes">Observações</label><textarea id="m-notes" rows="2" placeholder="Informações adicionais"></textarea></div>
+      <div><label for="m-type">Tipo de manutenção *</label><select id="m-type"><option value="preventiva">Preventiva</option><option value="corretiva">Corretiva</option></select></div>
+      <div><label for="m-hours">Horímetro inicial *</label><input id="m-hours" type="number" min="0" step="0.1" required></div>
+      <div><label for="m-date">Data de abertura</label><input id="m-date" type="date"></div>
+      <div class="span-2"><label for="m-requested">O que precisa ser feito? *</label><textarea id="m-requested" rows="3" required placeholder="Ex.: realizar manutenção preventiva, trocar filtros, verificar vazamento, testar o gerador..."></textarea></div>
+      <div class="span-2"><label for="m-suspected">Provável defeito / observação inicial</label><textarea id="m-suspected" rows="3" placeholder="Descreva o defeito informado ou a suspeita para o técnico verificar."></textarea></div>
     </div>
-    <div class="subsection"><h4>Peças utilizadas (opcional)</h4><p class="muted small-text">Ao salvar, a quantidade será baixada do estoque.</p>
-      <div class="inline-fields"><select id="m-part-select"></select><input id="m-part-quantity" type="number" min="0.01" step="0.01" value="1" aria-label="Quantidade de peças"><button type="button" id="m-add-part" class="btn btn-outline">Adicionar</button></div>
-      <div id="m-selected-parts" class="selected-list empty-state">Nenhuma peça adicionada.</div>
+    <div class="notice">Depois de abrir a OS, o técnico encontrará a solicitação na lista de ordens abertas. Ele registrará o que foi feito, anexará as fotos e informará o horímetro final.</div>
+    <div class="modal-actions"><button type="button" class="btn btn-outline" data-close-dialog="maintenance-dialog">Cancelar</button><button type="submit" class="btn btn-primary" id="save-maintenance">Abrir ordem de serviço</button></div><p id="maintenance-error" class="form-message"></p>
+  </form></dialog>
+
+  <dialog id="execution-dialog" class="modal modal-wide"><form id="execution-form" method="dialog">
+    <div class="modal-header"><div><span class="eyebrow">EXECUÇÃO PELO TÉCNICO</span><h3 id="execution-dialog-title">Atender ordem de serviço</h3><p id="execution-order-summary" class="muted small-text"></p></div><button type="button" class="icon-button" data-close-dialog="execution-dialog">×</button></div>
+    <div class="panel" style="margin:0 0 16px;padding:14px;background:#f8fafc"><strong>Solicitação do administrador</strong><p id="execution-request" class="small-text" style="white-space:pre-wrap"></p><strong>Provável defeito / observação inicial</strong><p id="execution-suspected" class="small-text" style="white-space:pre-wrap"></p></div>
+    <div class="form-grid">
+      <div><label for="e-final-hours">Horímetro final *</label><input id="e-final-hours" type="number" min="0" step="0.1" required placeholder="Horímetro ao terminar"></div>
+      <div><label for="e-finished-date">Data da conclusão</label><input id="e-finished-date" type="date" readonly></div>
+      <div class="span-2"><label for="e-services">O que foi feito pelo técnico? *</label><textarea id="e-services" rows="4" required placeholder="Informe os serviços realizados, peças trocadas, testes e resultados."></textarea></div>
+      <div class="span-2"><label for="e-notes">Observações do técnico</label><textarea id="e-notes" rows="2" placeholder="Pendências, recomendações ou observações finais."></textarea></div>
     </div>
-    <div class="subsection"><h4>Fotos da manutenção</h4><p class="muted small-text">Máximo de 10 MB por foto. Tipos aceitos: JPG, PNG e WEBP.</p>
+    <div class="subsection"><h4>Peças utilizadas (opcional)</h4><p class="muted small-text">As peças lançadas serão baixadas do estoque ao concluir a OS.</p>
+      <div class="inline-fields"><select id="e-part-select"></select><input id="e-part-quantity" type="number" min="0.01" step="0.01" value="1" aria-label="Quantidade de peças"><button type="button" id="e-add-part" class="btn btn-outline">Adicionar</button></div>
+      <div id="e-selected-parts" class="selected-list empty-state">Nenhuma peça adicionada.</div>
+    </div>
+    <div class="subsection"><h4>Fotos da execução</h4><p class="muted small-text">Anexe fotos de antes, durante e depois. Máximo de 10 MB por foto; JPG, PNG ou WEBP.</p>
       <div class="form-grid photo-grid">
-        <div><label for="m-photos-before">Antes</label><input id="m-photos-before" type="file" accept="image/jpeg,image/png,image/webp" multiple></div>
-        <div><label for="m-photos-during">Durante</label><input id="m-photos-during" type="file" accept="image/jpeg,image/png,image/webp" multiple></div>
-        <div><label for="m-photos-after">Depois</label><input id="m-photos-after" type="file" accept="image/jpeg,image/png,image/webp" multiple></div>
+        <div><label for="e-photos-before">Antes</label><input id="e-photos-before" type="file" accept="image/jpeg,image/png,image/webp" multiple></div>
+        <div><label for="e-photos-during">Durante</label><input id="e-photos-during" type="file" accept="image/jpeg,image/png,image/webp" multiple></div>
+        <div><label for="e-photos-after">Depois</label><input id="e-photos-after" type="file" accept="image/jpeg,image/png,image/webp" multiple></div>
       </div>
     </div>
-    <div class="modal-actions"><button type="button" class="btn btn-outline" data-close-dialog="maintenance-dialog">Cancelar</button><button type="submit" class="btn btn-primary" id="save-maintenance">Salvar manutenção</button></div><p id="maintenance-error" class="form-message"></p>
+    <div class="modal-actions"><button type="button" class="btn btn-outline" data-close-dialog="execution-dialog">Cancelar</button><button type="submit" class="btn btn-primary" id="save-execution">Salvar execução e concluir OS</button></div><p id="execution-error" class="form-message"></p>
   </form></dialog>
 
   <dialog id="part-dialog" class="modal"><form id="part-form" method="dialog">
@@ -187,6 +199,6 @@
 
   <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
