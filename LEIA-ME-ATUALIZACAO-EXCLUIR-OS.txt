@@ -1,0 +1,24 @@
+DMV ENGENHARIA - ATUALIZACAO PARA EXCLUIR ORDEM DE SERVICO
+
+1) No Supabase, abra SQL Editor > New Query.
+2) Cole o arquivo DMV_SQL_Excluir_OS_Administrador.sql e clique em RUN.
+3) No GitHub, abra o repositorio manuten-o-.
+4) Na raiz do repositorio, use Add file > Upload files.
+5) Envie/substitua os arquivos do aplicativo que estao junto deste LEIA-ME:
+   index.html, app.js, styles.css, sw.js, config.js, manifest.json,
+   icon.svg, apple-touch-icon.png e a pasta icons.
+6) Clique em Commit changes e confira a aba Actions ate a publicacao terminar.
+7) No celular, feche o aplicativo DMV e abra novamente. Se necessario, atualize
+   a pagina no navegador para buscar a nova versao.
+
+FUNCIONAMENTO:
+- O botao Excluir aparece apenas para o perfil administrador.
+- O banco valida novamente o perfil antes de permitir a exclusao.
+- A confirmacao avisa que a acao e definitiva.
+- Pecas registradas como usadas naquela OS retornam ao estoque.
+- Registros vinculados da OS sao removidos; o aplicativo tenta remover tambem
+  os arquivos de foto do bucket privado.
+- Tecnicos e almoxarifado nao podem executar a exclusao.
+
+IMPORTANTE: esta atualizacao ainda precisa ser publicada no GitHub e a funcao SQL
+precisa ser executada no Supabase. Ela nao altera o site automaticamente.
