@@ -1,0 +1,27 @@
+DMV ENGENHARIA - VERSAO INSTALAVEL (PWA)
+
+ESTA ATUALIZACAO MANTEM O APLICATIVO ATUAL E ADICIONA:
+- Manifesto PWA com icones PNG 192x192 e 512x512.
+- Icone maskable para Android e Apple Touch Icon para iPhone.
+- Botao de instalacao quando o navegador oferecer instalacao.
+- Instrucao de instalacao para Android e iPhone.
+- Cache do shell atualizado para esta versao.
+
+COMO PUBLICAR:
+1. Extraia este ZIP.
+2. No repositorio GitHub manuten-o-, abra Code > Add file > Upload files.
+3. Envie os arquivos e a pasta icons que estao dentro desta pasta, mantendo a estrutura.
+4. Substitua os arquivos antigos e confirme em Commit changes.
+5. Aguarde Actions concluir e abra o site no celular usando HTTPS.
+
+ANDROID:
+Abra o link no Google Chrome. Toque em Instalar aplicativo quando aparecer; caso nao apareca, menu ⋮ > Instalar aplicativo ou Adicionar a tela inicial.
+
+IPHONE:
+Abra o link no Safari. Toque em Compartilhar > Adicionar à Tela de Início > Adicionar.
+
+LINK DO APLICATIVO:
+https://carloshenriquewillers17-oss.github.io/manuten-o-/
+
+OBSERVACAO:
+Isto transforma o site em PWA instalavel. Nao e um APK da Play Store. O login e os dados continuam usando o Supabase e precisam de internet para operacoes online. O cache permite abrir a estrutura da interface, mas nao significa que todos os registros funcionem offline.

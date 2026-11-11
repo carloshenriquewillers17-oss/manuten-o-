@@ -7,7 +7,11 @@
   <meta name="description" content="DMV Engenharia - Gestão de Geradores">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=8">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="styles.css?v=10">
   <title>DMV Engenharia | Gestão de Geradores</title>
 </head>
 <body>
@@ -27,6 +31,8 @@
         <button class="btn btn-primary full" type="submit" id="login-button">Entrar</button>
       </form>
       <p id="login-message" class="form-message" aria-live="polite"></p>
+      <button id="install-app-button" class="btn btn-outline full" type="button">Instalar aplicativo no celular</button>
+      <p class="tiny muted install-help">Android: abra no Chrome e toque em Instalar ou em ⋮ → Instalar aplicativo. iPhone: abra no Safari, toque em Compartilhar e depois em Adicionar à Tela de Início.</p>
       <p class="tiny muted">Acesso restrito aos usuários cadastrados pela administração.</p>
     </section>
   </main>
@@ -71,7 +77,7 @@
         </section>
 
         <section id="page-manutencoes" class="page hidden">
-          <div class="section-toolbar"><div><h3>Manutenções</h3><p class="muted">O administrador abre a OS; o técnico registra o serviço executado, fotos e horímetro final.</p></div><button id="add-maintenance-button" class="btn btn-primary">+ Nova manutenção</button></div>
+          <div class="section-toolbar"><div><h3>Ordens de serviço</h3><p class="muted">Somente o administrador abre novas OS. O técnico apenas inicia uma ordem existente e finaliza o atendimento.</p></div><button id="add-maintenance-button" class="btn btn-primary hidden">+ Abrir nova OS</button></div><div id="maintenance-role-note" class="notice hidden">Acesso do técnico: aqui você consulta as ordens abertas pela administração. Toque em <strong>Iniciar OS</strong> para começar; depois registre o serviço, as fotos e o horímetro final e toque em <strong>Finalizar OS</strong>. Você não pode criar novas ordens nem alterar a solicitação original.</div>
           <div class="panel preventive-panel"><div class="panel-heading"><div><h3>Preventivas da frota</h3><p class="muted">Intervalo de 250 horas ou 6 meses, o que ocorrer primeiro. Aviso 15 dias antes do limite por data.</p></div></div><div id="preventive-alerts" class="preventive-alerts"><div class="empty-state">Carregando situação das preventivas...</div></div></div>
           <div class="panel"><div class="table-tools"><input id="maintenance-search" type="search" placeholder="Buscar por OS, gerador ou descrição..."></div><div class="table-scroll"><table><thead><tr><th>OS</th><th>Gerador</th><th>Tipo</th><th>Data</th><th>Horímetro inicial / final</th><th>Status</th><th>Ações</th></tr></thead><tbody id="maintenance-body"><tr><td colspan="7" class="muted">Carregando...</td></tr></tbody></table></div></div>
         </section>
@@ -147,7 +153,7 @@
         <div><label for="e-photos-after">Depois</label><input id="e-photos-after" type="file" accept="image/jpeg,image/png,image/webp" multiple></div>
       </div>
     </div>
-    <div class="modal-actions"><button type="button" class="btn btn-outline" data-close-dialog="execution-dialog">Cancelar</button><button type="submit" class="btn btn-primary" id="save-execution">Salvar execução e concluir OS</button></div><p id="execution-error" class="form-message"></p>
+    <div class="modal-actions"><button type="button" class="btn btn-outline" data-close-dialog="execution-dialog">Cancelar</button><button type="submit" class="btn btn-primary" id="save-execution">Finalizar ordem de serviço</button></div><p id="execution-error" class="form-message"></p>
   </form></dialog>
 
   <dialog id="part-dialog" class="modal"><form id="part-form" method="dialog">
@@ -204,6 +210,6 @@
 
   <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>

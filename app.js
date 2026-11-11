@@ -17,6 +17,7 @@
   let editingBatteryId = null;
   let executionParts = [];
   let activeExecutionOrderId = null;
+  let deferredInstallPrompt = null;
 
   const $ = (id) => document.getElementById(id);
   const showToast = (message, kind = 'info') => {
@@ -53,7 +54,46 @@
   const toNullableNumber = (value) => value === '' || value == null ? null : Number(value);
   const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 
+  function setupPwaInstall() {
+    const installButton = $('install-app-button');
+    if (!installButton) return;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    if (isStandalone) {
+      installButton.classList.add('hidden');
+      return;
+    }
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      installButton.textContent = 'Instalar aplicativo';
+    });
+    installButton.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) {
+        const isAppleMobile = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        showToast(isAppleMobile
+          ? 'No iPhone: toque em Compartilhar no Safari e escolha Adicionar à Tela de Início.'
+          : 'No Android: abra no Chrome, toque nos três pontos e escolha Instalar aplicativo ou Adicionar à tela inicial.');
+        return;
+      }
+      const promptEvent = deferredInstallPrompt;
+      deferredInstallPrompt = null;
+      try {
+        await promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice?.outcome === 'accepted') showToast('Instalação solicitada. Procure o ícone DMV na tela do celular.', 'success');
+      } catch (error) {
+        showToast('Para instalar, use o menu do navegador e escolha Instalar aplicativo.');
+      }
+    });
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      installButton.classList.add('hidden');
+      showToast('Aplicativo DMV instalado com sucesso!', 'success');
+    });
+  }
+
   function init() {
+    setupPwaInstall();
     $('today-label').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
     if (!isConfigured || !clientLib?.createClient) {
       $('login-message').textContent = 'A configuração pública do Supabase está incompleta. Confira o arquivo config.js.';
@@ -167,6 +207,7 @@
     $('add-movement-button').classList.toggle('hidden', !canManageParts());
     $('add-battery-button').classList.toggle('hidden', !canManageBatteries());
     $('add-maintenance-button').classList.toggle('hidden', !canOpenMaintenance());
+    $('maintenance-role-note').classList.toggle('hidden', currentProfile.papel !== 'tecnico');
   }
 
   async function navigate(page) {
@@ -306,8 +347,9 @@
     $('maintenance-body').innerHTML = rows.length ? rows.map((m) => {
       const canThisTechnicianExecute = canExecuteMaintenance() && ['aberta','em_andamento'].includes(m.status) && (!m.tecnico_id || m.tecnico_id === currentUser.id);
       const detailLabel = canExecuteMaintenance() ? 'Ver solicitação' : 'Ver OS';
-      const actions = [`<button type="button" class="btn btn-outline table-action" data-os-details="${m.id}">${detailLabel}</button>`, `<button type="button" class="btn btn-outline table-action" data-os-photos="${m.id}">Fotos</button>`];
-      if (canThisTechnicianExecute) actions.push(`<button type="button" class="btn btn-primary table-action" data-os-execute="${m.id}">${m.status === 'aberta' ? 'Atender OS' : 'Continuar OS'}</button>`);
+      const actions = [`<button type="button" class="btn btn-outline table-action" data-os-details="${m.id}">${detailLabel}</button>`];
+      if (!canExecuteMaintenance()) actions.push(`<button type="button" class="btn btn-outline table-action" data-os-photos="${m.id}">Fotos</button>`);
+      if (canThisTechnicianExecute) actions.push(`<button type="button" class="btn btn-primary table-action" data-os-execute="${m.id}">${m.status === 'aberta' ? 'Iniciar OS' : 'Finalizar OS'}</button>`);
       const hours = `${formatNumber(m.horimetro)}${m.horimetro_final == null ? '' : ` / ${formatNumber(m.horimetro_final)}`}`;
       return `<tr class="maintenance-click-row" data-os-row="${m.id}" tabindex="0" role="button" aria-label="Abrir detalhes da OS ${escapeHtml(m.numero_os)}"><td><strong>#${escapeHtml(m.numero_os)}</strong></td><td>${escapeHtml(m.geradores?.numero ? `Gerador ${m.geradores.numero}` : '—')}</td><td>${escapeHtml(m.tipo)}</td><td>${formatDate(m.data_abertura)}</td><td>${hours}</td><td><span class="status-pill ${escapeHtml(m.status)}">${escapeHtml(m.status.replace('_',' '))}</span></td><td><div class="table-actions">${actions.join('')}</div></td></tr>`;
     }).join('') : '<tr><td colspan="7" class="empty-table">Nenhuma ordem de serviço cadastrada.</td></tr>';
@@ -465,7 +507,7 @@
       showToast(`OS #${orderNo} concluída. Horímetro atualizado para ${formatNumber(finalHours)} h.${photoSummary ? ` ${photoSummary}` : ''}`, 'success');
     } catch (error) {
       $('execution-error').textContent = friendlyError(error); $('execution-error').classList.add('error');
-    } finally { save.disabled = false; save.textContent = 'Salvar execução e concluir OS'; }
+    } finally { save.disabled = false; save.textContent = 'Finalizar ordem de serviço'; }
   }
 
   async function uploadMaintenancePhotos(orderId) {
@@ -541,7 +583,7 @@
 
       const canExecuteThisOrder = canExecuteMaintenance() && ['aberta','em_andamento'].includes(data.status) && (!data.tecnico_id || data.tecnico_id === currentUser.id);
       const executeButton = canExecuteThisOrder
-        ? `<button type="button" class="btn btn-primary" data-detail-execute="${data.id}">${data.status === 'aberta' ? 'Atender esta ordem' : 'Continuar atendimento'}</button>`
+        ? `<button type="button" class="btn btn-primary" data-detail-execute="${data.id}">${data.status === 'aberta' ? 'Iniciar OS' : 'Finalizar OS'}</button>`
         : '';
       target.innerHTML = `<div class="detail-grid">
         <div><small>Gerador</small><strong>${escapeHtml(data.geradores?.numero ? `Nº ${data.geradores.numero}` : '—')}</strong><span>${escapeHtml([data.geradores?.marca,data.geradores?.modelo].filter(Boolean).join(' / '))}</span></div>
