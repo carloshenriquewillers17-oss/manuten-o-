@@ -405,6 +405,8 @@
     $('execution-request').textContent = order.servico_solicitado || order.descricao || 'Solicitação não informada.';
     $('execution-suspected').textContent = order.defeito_provavel || 'Nenhum provável defeito informado.';
     $('e-final-hours').value = order.horimetro_final ?? '';
+    $('e-final-hours').min = String(Number(order.horimetro || 0));
+    $('e-final-hours').placeholder = `Mínimo ${formatNumber(order.horimetro || 0)} h`;
     $('e-finished-date').value = todayISO();
     $('e-services').value = order.servicos_realizados || '';
     $('e-notes').value = order.observacoes || '';
@@ -420,8 +422,8 @@
       const order = maintenanceCache.find((item) => item.id === activeExecutionOrderId);
       if (!order) throw new Error('Ordem de serviço não encontrada. Atualize a lista.');
       const finalHours = Number($('e-final-hours').value);
-      if (!Number.isFinite(finalHours) || finalHours < 0) throw new Error('Informe um horímetro final válido.');
-      if (order.horimetro != null && finalHours < Number(order.horimetro)) throw new Error('O horímetro final não pode ser menor que o horímetro inicial.');
+      if ($('e-final-hours').value.trim() === '' || !Number.isFinite(finalHours) || finalHours < 0) { $('e-final-hours').focus(); throw new Error('Informe o HORÍMETRO FINAL antes de concluir a manutenção.'); }
+      if (order.horimetro != null && finalHours < Number(order.horimetro)) { $('e-final-hours').focus(); throw new Error(`O horímetro final (${formatNumber(finalHours)} h) não pode ser menor que o inicial (${formatNumber(order.horimetro)} h).`); }
       const services = $('e-services').value.trim();
       if (!services) throw new Error('Descreva o que foi feito na manutenção.');
 
@@ -449,13 +451,18 @@
         horimetro_final: finalHours,
         data_conclusao: new Date().toISOString()
       };
-      const { error: updateError } = await db.from('ordens_manutencao').update(patch).eq('id', activeExecutionOrderId);
+      const { data: completedOrder, error: updateError } = await db.from('ordens_manutencao')
+        .update(patch).eq('id', activeExecutionOrderId)
+        .select('id,horimetro_final,status').single();
       if (updateError) throw updateError;
+      if (!completedOrder || completedOrder.status !== 'concluida' || Number(completedOrder.horimetro_final) !== finalHours) {
+        throw new Error('A OS não confirmou o salvamento do horímetro final. Confira sua conexão e tente novamente.');
+      }
 
       const orderNo = order.numero_os;
       closeDialog('execution-dialog'); $('execution-form').reset(); executionParts = []; activeExecutionOrderId = null;
       await Promise.all([loadMaintenance(), loadParts(), loadGenerators(), refreshDashboard()]);
-      showToast(`OS #${orderNo} concluída. Execução registrada.${photoSummary ? ` ${photoSummary}` : ''}`, 'success');
+      showToast(`OS #${orderNo} concluída. Horímetro atualizado para ${formatNumber(finalHours)} h.${photoSummary ? ` ${photoSummary}` : ''}`, 'success');
     } catch (error) {
       $('execution-error').textContent = friendlyError(error); $('execution-error').classList.add('error');
     } finally { save.disabled = false; save.textContent = 'Salvar execução e concluir OS'; }

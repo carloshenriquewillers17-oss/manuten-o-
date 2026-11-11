@@ -7,7 +7,7 @@
   <meta name="description" content="DMV Engenharia - Gestão de Geradores">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=7">
+  <link rel="stylesheet" href="styles.css?v=8">
   <title>DMV Engenharia | Gestão de Geradores</title>
 </head>
 <body>
@@ -124,9 +124,14 @@
 
   <dialog id="execution-dialog" class="modal modal-wide"><form id="execution-form" method="dialog">
     <div class="modal-header"><div><span class="eyebrow">EXECUÇÃO PELO TÉCNICO</span><h3 id="execution-dialog-title">Atender ordem de serviço</h3><p id="execution-order-summary" class="muted small-text"></p></div><button type="button" class="icon-button" data-close-dialog="execution-dialog">×</button></div>
+    <section class="meter-required-card" aria-labelledby="meter-final-title">
+      <div class="meter-required-copy"><span class="eyebrow">PREENCHIMENTO OBRIGATÓRIO ANTES DE CONCLUIR</span><h4 id="meter-final-title">Horímetro final da manutenção</h4><p>Digite a leitura que aparece no painel do gerador ao terminar o serviço.</p></div>
+      <label for="e-final-hours">HORÍMETRO FINAL (HORAS) *</label>
+      <input id="e-final-hours" class="meter-final-input" type="number" min="0" step="0.1" inputmode="decimal" required placeholder="Ex.: 1.250,0" aria-describedby="e-final-hours-help">
+      <small id="e-final-hours-help">Este valor será salvo na OS e atualizado no cadastro do gerador.</small>
+    </section>
     <div class="panel" style="margin:0 0 16px;padding:14px;background:#f8fafc"><strong>Solicitação do administrador</strong><p id="execution-request" class="small-text" style="white-space:pre-wrap"></p><strong>Provável defeito / observação inicial</strong><p id="execution-suspected" class="small-text" style="white-space:pre-wrap"></p></div>
     <div class="form-grid">
-      <div><label for="e-final-hours">Horímetro final *</label><input id="e-final-hours" type="number" min="0" step="0.1" required placeholder="Horímetro ao terminar"></div>
       <div><label for="e-finished-date">Data da conclusão</label><input id="e-finished-date" type="date" readonly></div>
       <div class="span-2"><label for="e-services">O que foi feito pelo técnico? *</label><textarea id="e-services" rows="4" required placeholder="Informe os serviços realizados, peças trocadas, testes e resultados."></textarea></div>
       <div class="span-2"><label for="e-notes">Observações do técnico</label><textarea id="e-notes" rows="2" placeholder="Pendências, recomendações ou observações finais."></textarea></div>
@@ -199,6 +204,6 @@
 
   <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>

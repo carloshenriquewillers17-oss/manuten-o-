@@ -1,40 +1,22 @@
-DMV ENGENHARIA - GESTAO DE GERADORES
-Pacote inicial conectado ao projeto Supabase da DMV.
+DMV ENGENHARIA - ATUALIZACAO DO HORIMETRO FINAL
 
-O QUE ESTA VERSAO FAZ
-- Login por e-mail e senha usando Supabase Auth.
-- Carrega o perfil em public.perfis e identifica Administrador, Tecnico ou Almoxarifado.
-- Mantem a sessao do usuario no navegador.
-- Mostra painel com contagem de geradores, ordens abertas, pecas e baterias.
-- Lista os geradores cadastrados.
-- Permite ao Administrador cadastrar geradores.
-- Tem interface responsiva e instalacao PWA.
+O que muda:
+- O campo HORIMETRO FINAL fica destacado no topo da tela de execução do técnico.
+- O técnico precisa preencher a leitura antes de concluir a OS.
+- O aplicativo confirma o valor salvo na ordem.
+- Ao concluir a OS, o banco atualiza o horímetro atual do gerador.
+- Em manutenção preventiva concluída, o banco também reinicia a data e o horímetro de referência da preventiva.
+- Cache do site atualizado para a versão 8.
 
-CONFIGURACAO SUPABASE
-- O endereco do projeto DMV ja esta configurado em config.js.
-- A chave Publishable sb_publishable_ tambem ja esta configurada.
-- A chave Publishable e publica por definicao e pode estar no codigo do navegador.
-- NUNCA substitua essa chave por uma chave sb_secret_ ou service_role.
-- A protecao dos dados depende das politicas RLS do Supabase. Nao desative o RLS.
+PASSO 1 - SUPABASE
+Abra SQL Editor > New Query, copie o arquivo SQL_ATUALIZAR_HORIMETRO_FINAL.sql e clique em RUN.
 
-PUBLICAR NO GITHUB PAGES
-1. No GitHub, crie um repositorio chamado dmv-gestao-geradores.
-2. Extraia este ZIP no computador.
-3. Abra a pasta dmv_app que foi extraida.
-4. Envie TODOS os arquivos que estao dentro dessa pasta para a raiz do repositorio (index.html, config.js, app.js, styles.css, manifest.json, sw.js, icon.svg e este arquivo).
-5. No repositorio, abra Settings > Pages.
-6. Em Build and deployment, escolha Deploy from a branch.
-7. Selecione a branch main e a pasta /(root), depois clique em Save.
-8. Abra o endereco publicado pelo GitHub Pages.
+PASSO 2 - GITHUB
+Envie os arquivos index.html, app.js, styles.css, sw.js, config.js, manifest.json e icon.svg para a RAIZ do repositório, substituindo os antigos. O arquivo SQL e este LEIA-ME não precisam ser publicados no GitHub Pages.
+Clique em Commit changes e aguarde a execução verde em Actions.
 
-TESTE DE ACESSO
-- Entre com o e-mail e a senha do usuario Administrador criado em Supabase Authentication > Users.
-- O perfil desse usuario ja deve existir em public.perfis com papel = administrador e ativo = true.
-- O usuario Almoxarife deve existir em public.perfis com papel = almoxarifado e ativo = true.
-- Os tres tecnicos podem ser cadastrados depois.
+PASSO 3 - CELULAR
+Feche a aba antiga do aplicativo e abra novamente. No computador, use Ctrl+F5.
 
-LIMITES DESTA VERSAO
-- Implementados nesta etapa: login, carregamento de perfil, painel, listagem e cadastro de geradores (somente Administrador).
-- As telas de manutencao, estoque, baterias, abastecimentos e locacoes ainda sao estruturas visuais; seus formularios serao desenvolvidos nas proximas etapas.
-- O cache PWA mantem os arquivos da interface disponiveis, mas a gravacao offline com sincronizacao posterior ainda nao esta implementada.
-- Para testar login e banco, abra o site publicado com internet. Nao abra o index.html diretamente pelo explorador de arquivos.
+IMPORTANTE
+O campo de horímetro final é obrigatório e não pode ser menor que o horímetro inicial da OS.
