@@ -1,22 +1,12 @@
-DMV ENGENHARIA - ATUALIZACAO DO HORIMETRO FINAL
+DMV ENGENHARIA - ATUALIZACAO v12 (BOTAO EXCLUIR OS)
 
-O que muda:
-- O campo HORIMETRO FINAL fica destacado no topo da tela de execução do técnico.
-- O técnico precisa preencher a leitura antes de concluir a OS.
-- O aplicativo confirma o valor salvo na ordem.
-- Ao concluir a OS, o banco atualiza o horímetro atual do gerador.
-- Em manutenção preventiva concluída, o banco também reinicia a data e o horímetro de referência da preventiva.
-- Cache do site atualizado para a versão 8.
+1. Abra o repositorio manuten-o- no GitHub.
+2. Entre em Code > Add file > Upload files.
+3. Extraia este ZIP e envie os arquivos diretamente para a raiz do repositorio, substituindo os anteriores. Inclua a pasta icons.
+4. Clique em Commit changes e aguarde a aba Actions ficar verde.
+5. No celular, feche completamente o aplicativo DMV e abra novamente. Se ainda aparecer a versao antiga, abra o link no Chrome/Safari e atualize a pagina.
 
-PASSO 1 - SUPABASE
-Abra SQL Editor > New Query, copie o arquivo SQL_ATUALIZAR_HORIMETRO_FINAL.sql e clique em RUN.
+O botao aparece apenas se o perfil ativo retornado por public.perfis tiver papel = administrador.
+No celular, ele aparece tambem ao abrir uma OS em Ver OS, no bloco vermelho Ação do administrador > Excluir esta OS. Na tabela, pode ser necessario deslizar a tabela para a direita ate a coluna Acoes.
 
-PASSO 2 - GITHUB
-Envie os arquivos index.html, app.js, styles.css, sw.js, config.js, manifest.json e icon.svg para a RAIZ do repositório, substituindo os antigos. O arquivo SQL e este LEIA-ME não precisam ser publicados no GitHub Pages.
-Clique em Commit changes e aguarde a execução verde em Actions.
-
-PASSO 3 - CELULAR
-Feche a aba antiga do aplicativo e abra novamente. No computador, use Ctrl+F5.
-
-IMPORTANTE
-O campo de horímetro final é obrigatório e não pode ser menor que o horímetro inicial da OS.
+A funcao SQL dmv_excluir_ordem_servico(uuid) precisa estar criada no Supabase. Esta atualizacao nao modifica os dados nem cria a funcao SQL.

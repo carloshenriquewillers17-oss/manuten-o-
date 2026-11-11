@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dmv-geradores-pwa-v10';
+const CACHE_NAME = 'dmv-geradores-pwa-v12';
 const APP_FILES = [
   './', './index.html', './styles.css', './app.js', './config.js',
   './manifest.json', './icon.svg', './apple-touch-icon.png',

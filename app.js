@@ -38,11 +38,12 @@
     if (/bucket not found/i.test(msg)) return 'O bucket fotos-manutencao não foi encontrado. Confira o Storage do Supabase.';
     return msg;
   };
-  const roleLabel = (role) => ({ administrador: 'Administrador', tecnico: 'Técnico', almoxarifado: 'Almoxarifado' }[role] || 'Usuário');
-  const canOpenMaintenance = () => currentProfile?.papel === 'administrador';
-  const canExecuteMaintenance = () => currentProfile?.papel === 'tecnico';
-  const canManageParts = () => ['administrador', 'almoxarifado'].includes(currentProfile?.papel);
-  const canManageBatteries = () => ['administrador', 'tecnico', 'almoxarifado'].includes(currentProfile?.papel);
+  const normalizedRole = () => String(currentProfile?.papel || '').trim().toLowerCase();
+  const roleLabel = (role) => ({ administrador: 'Administrador', tecnico: 'Técnico', almoxarifado: 'Almoxarifado' }[String(role || '').trim().toLowerCase()] || 'Usuário');
+  const canOpenMaintenance = () => normalizedRole() === 'administrador';
+  const canExecuteMaintenance = () => normalizedRole() === 'tecnico';
+  const canManageParts = () => ['administrador', 'almoxarifado'].includes(normalizedRole());
+  const canManageBatteries = () => ['administrador', 'tecnico', 'almoxarifado'].includes(normalizedRole());
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const formatNumber = (value, digits = 1) => value == null ? '—' : Number(value).toLocaleString('pt-BR', { maximumFractionDigits: digits });
   const formatMoney = (value) => value == null ? '—' : Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -202,12 +203,12 @@
   function showLogin() { $('app-shell').classList.add('hidden'); $('login-screen').classList.remove('hidden'); $('password').value = ''; }
   function showApp() { $('login-screen').classList.add('hidden'); $('app-shell').classList.remove('hidden'); navigate('inicio'); }
   function applyRoleVisibility() {
-    $('add-generator-button').classList.toggle('hidden', currentProfile.papel !== 'administrador');
+    $('add-generator-button').classList.toggle('hidden', !canOpenMaintenance());
     $('add-part-button').classList.toggle('hidden', !canManageParts());
     $('add-movement-button').classList.toggle('hidden', !canManageParts());
     $('add-battery-button').classList.toggle('hidden', !canManageBatteries());
     $('add-maintenance-button').classList.toggle('hidden', !canOpenMaintenance());
-    $('maintenance-role-note').classList.toggle('hidden', currentProfile.papel !== 'tecnico');
+    $('maintenance-role-note').classList.toggle('hidden', !canExecuteMaintenance());
   }
 
   async function navigate(page) {
@@ -350,6 +351,7 @@
       const actions = [`<button type="button" class="btn btn-outline table-action" data-os-details="${m.id}">${detailLabel}</button>`];
       if (!canExecuteMaintenance()) actions.push(`<button type="button" class="btn btn-outline table-action" data-os-photos="${m.id}">Fotos</button>`);
       if (canThisTechnicianExecute) actions.push(`<button type="button" class="btn btn-primary table-action" data-os-execute="${m.id}">${m.status === 'aberta' ? 'Iniciar OS' : 'Finalizar OS'}</button>`);
+      if (canOpenMaintenance()) actions.push(`<button type="button" class="btn btn-danger table-action admin-delete-button" data-os-delete="${m.id}" aria-label="Excluir OS ${escapeHtml(m.numero_os)}">Excluir OS</button>`);
       const hours = `${formatNumber(m.horimetro)}${m.horimetro_final == null ? '' : ` / ${formatNumber(m.horimetro_final)}`}`;
       return `<tr class="maintenance-click-row" data-os-row="${m.id}" tabindex="0" role="button" aria-label="Abrir detalhes da OS ${escapeHtml(m.numero_os)}"><td><strong>#${escapeHtml(m.numero_os)}</strong></td><td>${escapeHtml(m.geradores?.numero ? `Gerador ${m.geradores.numero}` : '—')}</td><td>${escapeHtml(m.tipo)}</td><td>${formatDate(m.data_abertura)}</td><td>${hours}</td><td><span class="status-pill ${escapeHtml(m.status)}">${escapeHtml(m.status.replace('_',' '))}</span></td><td><div class="table-actions">${actions.join('')}</div></td></tr>`;
     }).join('') : '<tr><td colspan="7" class="empty-table">Nenhuma ordem de serviço cadastrada.</td></tr>';
@@ -538,14 +540,56 @@
   async function handleMaintenanceAction(event) {
     const clicked = event.target instanceof Element ? event.target : event.target?.parentElement;
     if (!clicked) return;
+    const remove = clicked.closest('[data-os-delete]');
     const details = clicked.closest('[data-os-details]');
     const photos = clicked.closest('[data-os-photos]');
     const execute = clicked.closest('[data-os-execute]');
+    if (remove) { event.preventDefault(); event.stopPropagation(); await deleteMaintenanceOrder(remove.dataset.osDelete); return; }
     if (details) { event.preventDefault(); await showMaintenanceDetails(details.dataset.osDetails); return; }
     if (photos) { event.preventDefault(); await showMaintenancePhotos(photos.dataset.osPhotos); return; }
     if (execute) { event.preventDefault(); await openExecutionDialog(execute.dataset.osExecute); return; }
     const row = clicked.closest('[data-os-row]');
     if (row) await showMaintenanceDetails(row.dataset.osRow);
+  }
+
+  async function deleteMaintenanceOrder(orderId) {
+    if (!canOpenMaintenance()) return showToast('Somente o administrador pode excluir ordens de serviço.', 'error');
+    const order = maintenanceCache.find((item) => item.id === orderId);
+    if (!order) return showToast('Ordem de serviço não encontrada. Atualize a lista.', 'error');
+    const osLabel = `OS #${order.numero_os}`;
+    const confirmed = window.confirm(
+      `Deseja EXCLUIR DEFINITIVAMENTE a ${osLabel}?\n\n` +
+      'Os dados e fotos desta ordem serão removidos. As peças consumidas nesta OS voltarão ao estoque.\n\n' +
+      'Esta ação não pode ser desfeita.'
+    );
+    if (!confirmed) return;
+
+    showToast(`Excluindo ${osLabel}...`);
+    try {
+      // A função no banco valida novamente o perfil administrador e faz a
+      // exclusão transacional, devolvendo ao estoque as peças desta OS.
+      const { data, error } = await db.rpc('dmv_excluir_ordem_servico', { p_ordem_id: orderId });
+      if (error) throw error;
+      const result = Array.isArray(data) ? data[0] : data;
+      const photoPaths = Array.isArray(result?.foto_paths) ? result.foto_paths.filter(Boolean) : [];
+      let photoCleanupFailed = false;
+      if (photoPaths.length) {
+        const { error: storageError } = await db.storage.from('fotos-manutencao').remove(photoPaths);
+        if (storageError) {
+          photoCleanupFailed = true;
+          console.warn('A OS foi excluída, mas houve falha ao remover alguns arquivos do Storage:', storageError);
+        }
+      }
+      closeDialog('maintenance-detail-dialog');
+      await Promise.all([loadMaintenance(), loadParts(), refreshDashboard()]);
+      if (photoCleanupFailed) {
+        showToast(`${osLabel} excluída. Atenção: não foi possível remover todos os arquivos de foto do armazenamento.`, 'error');
+      } else {
+        showToast(`${osLabel} excluída. As peças consumidas foram devolvidas ao estoque.`, 'success');
+      }
+    } catch (error) {
+      showToast(friendlyError(error), 'error');
+    }
   }
 
   async function handleMaintenanceRowKeydown(event) {
@@ -585,7 +629,10 @@
       const executeButton = canExecuteThisOrder
         ? `<button type="button" class="btn btn-primary" data-detail-execute="${data.id}">${data.status === 'aberta' ? 'Iniciar OS' : 'Finalizar OS'}</button>`
         : '';
-      target.innerHTML = `<div class="detail-grid">
+      const deleteButton = canOpenMaintenance()
+        ? `<div class="admin-delete-panel"><div><strong>Ação do administrador</strong><span>Exclusão definitiva desta ordem de serviço.</span></div><button type="button" class="btn btn-danger admin-delete-button" data-detail-delete="${data.id}">Excluir esta OS</button></div>`
+        : '';
+      target.innerHTML = `${deleteButton}<div class="detail-grid">
         <div><small>Gerador</small><strong>${escapeHtml(data.geradores?.numero ? `Nº ${data.geradores.numero}` : '—')}</strong><span>${escapeHtml([data.geradores?.marca,data.geradores?.modelo].filter(Boolean).join(' / '))}</span></div>
         <div><small>Tipo / status</small><strong>${escapeHtml(data.tipo)} · ${escapeHtml(data.status.replaceAll('_',' '))}</strong></div>
         <div><small>Data de abertura</small><strong>${formatDate(data.data_abertura)}</strong></div>
@@ -600,6 +647,7 @@
       </div><div class="detail-actions"><button type="button" class="btn btn-outline" data-detail-photos="${data.id}">Ver fotos desta OS</button>${executeButton}</div>`;
       target.querySelector('[data-detail-photos]')?.addEventListener('click', () => { closeDialog('maintenance-detail-dialog'); showMaintenancePhotos(orderId); });
       target.querySelector('[data-detail-execute]')?.addEventListener('click', () => { closeDialog('maintenance-detail-dialog'); openExecutionDialog(orderId); });
+      target.querySelector('[data-detail-delete]')?.addEventListener('click', async () => { closeDialog('maintenance-detail-dialog'); await deleteMaintenanceOrder(orderId); });
     } catch (error) {
       target.innerHTML = `<div class="empty-state error-cell">Não foi possível carregar os detalhes desta OS: ${escapeHtml(friendlyError(error))}</div>`;
     }

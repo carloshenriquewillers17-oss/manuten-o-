@@ -26,3 +26,11 @@
 .meter-required-card .meter-final-input{width:100%;min-height:58px;border:2px solid #b8830b;border-radius:10px;background:#fff;padding:12px 15px;color:#10243b;font-size:24px;font-weight:850;outline:none}
 .meter-required-card .meter-final-input:focus{border-color:#10243b;box-shadow:0 0 0 4px rgba(16,36,59,.12)}
 .meter-required-card small{font-size:11px;color:#66551e}
+
+
+/* Exclusao de OS: acao destrutiva visivel somente ao administrador. */
+.btn-danger{background:#b83b42;color:#fff;border-color:#b83b42}.btn-danger:hover{background:#982f35;border-color:#982f35}
+
+/* DMV v12: destaque da acao de exclusao exclusiva do administrador */
+.admin-delete-panel{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 18px;padding:14px 16px;border:1px solid #efc4c6;border-left:5px solid #b83b42;border-radius:11px;background:#fff7f7}.admin-delete-panel div{display:grid;gap:3px}.admin-delete-panel strong{font-size:13px;color:#8f252c}.admin-delete-panel span{font-size:11px;color:#76585a}.admin-delete-button{font-weight:850;letter-spacing:.01em}.table-actions{min-width:145px}
+@media(max-width:760px){.admin-delete-panel{align-items:stretch;flex-direction:column}.admin-delete-panel .btn{width:100%;padding:12px}.table-actions{min-width:145px}}
