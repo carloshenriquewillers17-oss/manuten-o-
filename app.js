@@ -18,6 +18,7 @@
   let executionParts = [];
   let activeExecutionOrderId = null;
   let deferredInstallPrompt = null;
+  let rentalsCache = []; let rentalEditingId = null; let rentalDeliveryId = null; let rentalGpsCaptured = false;
 
   const $ = (id) => document.getElementById(id);
   const showToast = (message, kind = 'info') => {
@@ -149,6 +150,7 @@
     $('battery-search').addEventListener('input', renderBatteries);
     $('batteries-body').addEventListener('click', handleBatteryAction);
 
+    bindRentalEvents();
     $('menu-button').addEventListener('click', () => $('sidebar').classList.toggle('open'));
     db.auth.onAuthStateChange((event) => { if (event === 'SIGNED_OUT') showLogin(); });
   }
@@ -209,6 +211,7 @@
     $('add-battery-button').classList.toggle('hidden', !canManageBatteries());
     $('add-maintenance-button').classList.toggle('hidden', !canOpenMaintenance());
     $('maintenance-role-note').classList.toggle('hidden', !canExecuteMaintenance());
+    $('r-new').classList.toggle('hidden', normalizedRole() !== 'administrador');
   }
 
   async function navigate(page) {
@@ -223,6 +226,7 @@
       if (page === 'manutencoes') await loadMaintenance();
       if (page === 'estoque') await loadParts();
       if (page === 'baterias') await loadBatteries();
+      if (page === 'alugueis') await loadRentals();
     } catch (error) { showToast(friendlyError(error), 'error'); }
   }
 
@@ -776,6 +780,138 @@
     finally { save.disabled = false; save.textContent = 'Salvar bateria'; }
   }
   function handleBatteryAction(event) { const edit = event.target.closest('[data-edit-battery]'); if (edit) openEditBattery(edit.dataset.editBattery); }
+
+
+  // DMV: locações e entregas. Permissões efetivas são verificadas também pelas RLS do Supabase.
+  const rentalAdmin = () => normalizedRole() === 'administrador';
+  const rentalTech = () => normalizedRole() === 'tecnico';
+  function bindRentalEvents() {
+    $('r-new').addEventListener('click', () => openRentalAdmin());
+    $('r-admin-form').addEventListener('submit', saveRentalAdmin);
+    $('r-delivery-form').addEventListener('submit', saveRentalDelivery);
+    $('r-gps').addEventListener('click', captureRentalGPS);
+    $('r-search').addEventListener('input', renderRentals);
+    $('r-body').addEventListener('click', async e => {
+      const b = e.target.closest('button[data-r-action]'); if (!b) return;
+      const id = b.dataset.id;
+      if (b.dataset.rAction === 'edit') await openRentalAdmin(id);
+      if (b.dataset.rAction === 'deliver') openRentalDelivery(id);
+      if (b.dataset.rAction === 'detail') await showRentalDetails(id);
+    });
+  }
+  async function loadRentals() {
+    const body = $('r-body'); body.innerHTML = '<tr><td colspan="6">Carregando...</td></tr>';
+    const {data,error} = await db.from('dmv_locacoes').select('*').order('created_at',{ascending:false});
+    if (error) { body.innerHTML = `<tr><td colspan="6" class="error-cell">${escapeHtml(friendlyError(error))}</td></tr>`; return; }
+    rentalsCache = data || []; renderRentals();
+  }
+  function renderRentals() {
+    const q = $('r-search').value.toLowerCase();
+    const rows = rentalsCache.filter(r => [r.cliente,r.endereco_previsto,generatorsCache.find(g=>g.id===r.gerador_id)?.numero].some(x=>String(x||'').toLowerCase().includes(q)));
+    $('r-body').innerHTML = rows.length ? rows.map(r => {
+      const g = generatorsCache.find(x=>x.id===r.gerador_id);
+      const actions = [`<button class="btn btn-outline table-action" data-r-action="detail" data-id="${escapeHtml(r.id)}">Detalhes</button>`];
+      if (rentalAdmin()) actions.push(`<button class="btn btn-outline table-action" data-r-action="edit" data-id="${escapeHtml(r.id)}">Editar</button>`);
+      if ((rentalTech() || rentalAdmin()) && r.situacao==='ativa' && !r.entregue_em && (!r.tecnico_designado || r.tecnico_designado===currentUser.id || rentalAdmin())) actions.push(`<button class="btn btn-primary table-action" data-r-action="deliver" data-id="${escapeHtml(r.id)}">Registrar entrega</button>`);
+      return `<tr><td><strong>EA ${escapeHtml(g?.numero||'—')}</strong><small class="table-subline">${g?.potencia_kva==null?'':formatNumber(g.potencia_kva,0)+' kVA'}</small></td><td>${escapeHtml(r.cliente)}</td><td>${formatDate(r.data_saida)} / ${formatDate(r.previsao_retorno)}</td><td>${escapeHtml(r.endereco_previsto||'—')}</td><td><span class="status-pill ${r.situacao==='ativa'?'alugado':'concluida'}">${escapeHtml(r.entregue_em?'Entregue · ':'')}${escapeHtml(r.situacao)}</span></td><td><div class="table-actions">${actions.join('')}</div></td></tr>`;
+    }).join('') : '<tr><td colspan="6" class="empty-table">Nenhuma locação encontrada.</td></tr>';
+  }
+  async function openRentalAdmin(id = null) {
+    if (!rentalAdmin()) return showToast('Somente administrador pode editar locações.','error');
+    await loadGenerators();
+    rentalEditingId=id;
+    const r=rentalsCache.find(x=>x.id===id);
+    $('r-admin-form').reset(); $('r-admin-error').textContent='';
+    $('r-admin-title').textContent=r?'Editar locação':'Nova locação';
+    $('r-generator').innerHTML='<option value="">Selecione</option>'+generatorsCache.map(g=>`<option value="${escapeHtml(g.id)}">EA ${escapeHtml(g.numero)} · ${formatNumber(g.potencia_kva,0)} kVA</option>`).join('');
+    const {data:techs,error} = await db.from('perfis').select('id,nome').eq('papel','tecnico').eq('ativo',true).order('nome');
+    if(error) showToast('Lista de técnicos indisponível; use a opção qualquer técnico autorizado.','error');
+    $('r-tech').innerHTML='<option value="">Qualquer técnico autorizado</option>'+(techs||[]).map(t=>`<option value="${escapeHtml(t.id)}">${escapeHtml(t.nome)}</option>`).join('');
+    $('r-generator').value=r?.gerador_id||''; $('r-client').value=r?.cliente||'';
+    $('r-start').value=r?.data_saida||todayISO(); $('r-end').value=r?.previsao_retorno||'';
+    $('r-address').value=r?.endereco_previsto||''; $('r-tech').value=r?.tecnico_designado||'';
+    $('r-status').value=r?.situacao||'ativa'; $('r-notes').value=r?.observacoes_admin||'';
+    $('r-admin-dialog').showModal();
+  }
+  async function saveRentalAdmin(e) {
+    e.preventDefault(); if(!rentalAdmin()) return;
+    const btn=$('r-admin-save'); btn.disabled=true; $('r-admin-error').textContent='';
+    try {
+      const record={gerador_id:$('r-generator').value,cliente:$('r-client').value.trim(),data_saida:$('r-start').value,previsao_retorno:$('r-end').value||null,endereco_previsto:$('r-address').value.trim()||null,tecnico_designado:$('r-tech').value||null,situacao:$('r-status').value,observacoes_admin:$('r-notes').value.trim()||null};
+      if(!record.gerador_id||!record.cliente||!record.data_saida) throw new Error('Preencha máquina, cliente e data de saída.');
+      if(record.previsao_retorno && record.previsao_retorno<record.data_saida) throw new Error('Previsão de retorno anterior à saída.');
+      const result=rentalEditingId?await db.from('dmv_locacoes').update(record).eq('id',rentalEditingId):await db.from('dmv_locacoes').insert({...record,criado_por:currentUser.id});
+      if(result.error) throw result.error;
+      closeDialog('r-admin-dialog'); await loadRentals(); showToast('Locação salva.','success');
+    } catch(err) {$('r-admin-error').textContent=friendlyError(err);} finally {btn.disabled=false;}
+  }
+  function openRentalDelivery(id) {
+    const r=rentalsCache.find(x=>x.id===id);
+    if(!r||r.situacao!=='ativa'||r.entregue_em||(!rentalTech()&&!rentalAdmin())||(r.tecnico_designado&&r.tecnico_designado!==currentUser.id&&!rentalAdmin())) return showToast('Entrega indisponível para este usuário.','error');
+    rentalDeliveryId=id; rentalGpsCaptured=false;
+    $('r-delivery-form').reset(); $('r-delivery-error').textContent='';
+    $('r-lat').value=''; $('r-lng').value=''; $('r-gps-message').textContent='Toque em Capturar GPS e autorize a localização.';
+    $('r-delivery-address').value=r.endereco_previsto||'';
+    const g=generatorsCache.find(x=>x.id===r.gerador_id);
+    $('r-delivery-summary').textContent=`EA ${g?.numero||'—'} · ${r.cliente}`;
+    $('r-hours').value=g?.horimetro_atual??'';
+    $('r-delivery-dialog').showModal();
+  }
+  async function captureRentalGPS() {
+    const message=$('r-gps-message'); rentalGpsCaptured=false; $('r-lat').value=''; $('r-lng').value='';
+    if(!navigator.geolocation) return message.textContent='Este dispositivo não oferece GPS pelo navegador.';
+    if(!window.isSecureContext) return message.textContent='GPS exige HTTPS. Abra o aplicativo no endereço seguro.';
+    message.textContent='Buscando localização... aguarde ao ar livre, se possível.';
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      if(!$('r-delivery-dialog').open) return;
+      const lat=pos.coords.latitude, lng=pos.coords.longitude;
+      $('r-lat').value=lat.toFixed(7); $('r-lng').value=lng.toFixed(7); rentalGpsCaptured=true;
+      message.textContent=`GPS capturado (precisão aproximada: ${Math.round(pos.coords.accuracy)} metros). Conferir endereço antes de salvar.`;
+      try {
+        const response=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&accept-language=pt-BR`,{headers:{'Accept':'application/json'}});
+        if(response.ok) { const place=await response.json(); if(place.display_name) $('r-delivery-address').value=place.display_name; }
+      } catch(_) { message.textContent+=' Não foi possível identificar endereço; preencha manualmente.'; }
+    },err=>{message.textContent=err.code===1?'Localização negada. Autorize o acesso nas configurações do navegador.':'GPS indisponível. Verifique sinal e tente novamente.';},{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+  }
+  async function saveRentalDelivery(e) {
+    e.preventDefault(); const btn=$('r-delivery-save'); btn.disabled=true; $('r-delivery-error').textContent='';
+    try {
+      if(!rentalGpsCaptured) throw new Error('Capture o GPS antes de finalizar.');
+      const photos=Array.from($('r-photos').files||[]);
+      if(!photos.length) throw new Error('Anexe ao menos uma foto.');
+      for(const f of photos) if(!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>10*1024*1024) throw new Error(`Foto ${f.name}: use JPG/PNG/WEBP até 10 MB.`);
+      const hours=Number($('r-hours').value); if(!Number.isFinite(hours)||hours<0) throw new Error('Horímetro inválido.');
+      const payload={p_locacao_id:rentalDeliveryId,p_horimetro:hours,p_condicao:$('r-condition').value,p_endereco:$('r-delivery-address').value.trim(),p_latitude:Number($('r-lat').value),p_longitude:Number($('r-lng').value),p_observacoes:$('r-delivery-notes').value.trim()||null};
+      if(!payload.p_endereco) throw new Error('Informe o endereço da entrega.');
+      const {data,error}=await db.rpc('dmv_registrar_entrega_locacao',payload);
+      if(error) throw error;
+      // A entrega já foi gravada; upload pode ser retomado pela administração se houver falha.
+      let uploaded=0, failures=[];
+      for(const f of photos) {
+        const ext=f.type==='image/png'?'png':f.type==='image/webp'?'webp':'jpg';
+        const path=`${rentalDeliveryId}/${crypto.randomUUID()}.${ext}`;
+        const up=await db.storage.from('fotos-locacoes').upload(path,f,{contentType:f.type,upsert:false});
+        if(up.error) {failures.push(f.name+': '+friendlyError(up.error)); continue;}
+        const row=await db.from('dmv_fotos_locacao').insert({locacao_id:rentalDeliveryId,caminho_storage:path,legenda:f.name,enviado_por:currentUser.id});
+        if(row.error) failures.push(f.name+': '+friendlyError(row.error)); else uploaded++;
+      }
+      closeDialog('r-delivery-dialog'); await loadRentals();
+      if(failures.length) showToast(`Entrega registrada, mas ${failures.length} foto(s) falharam. Avise o administrador.`, 'error');
+      else showToast(`Entrega registrada com GPS e ${uploaded} foto(s).`,'success');
+    } catch(err) {$('r-delivery-error').textContent=friendlyError(err);} finally {btn.disabled=false;}
+  }
+  async function showRentalDetails(id) {
+    const r=rentalsCache.find(x=>x.id===id); if(!r) return;
+    const g=generatorsCache.find(x=>x.id===r.gerador_id);
+    const target=$('r-detail-content'); target.textContent='Carregando...'; $('r-detail-dialog').showModal();
+    const {data:photos,error}=await db.from('dmv_fotos_locacao').select('caminho_storage,legenda').eq('locacao_id',id);
+    const signed=await Promise.all((photos||[]).map(async p=>{
+      const res=await db.storage.from('fotos-locacoes').createSignedUrl(p.caminho_storage,3600);
+      return {...p,url:res.error?null:res.data?.signedUrl};
+    }));
+    const maps= r.latitude!=null&&r.longitude!=null?`<a target="_blank" rel="noopener noreferrer" class="r-map" href="https://www.google.com/maps?q=${encodeURIComponent(r.latitude+','+r.longitude)}">📍 Abrir GPS no Google Maps</a>`:'GPS ainda não registrado';
+    target.innerHTML=`<div class="r-detail"><p><strong>Máquina:</strong> EA ${escapeHtml(g?.numero||'—')} · ${g?.potencia_kva==null?'':formatNumber(g.potencia_kva,0)+' kVA'}</p><p><strong>Cliente:</strong> ${escapeHtml(r.cliente)}</p><p><strong>Período:</strong> ${formatDate(r.data_saida)} a ${formatDate(r.previsao_retorno)}</p><p><strong>Situação:</strong> ${escapeHtml(r.situacao)}</p><p><strong>Endereço previsto:</strong> ${escapeHtml(r.endereco_previsto||'—')}</p><p><strong>Entregue em:</strong> ${r.entregue_em?new Date(r.entregue_em).toLocaleString('pt-BR'):'Aguardando'}</p><p><strong>Horímetro na entrega:</strong> ${formatNumber(r.horimetro_entrega)} h</p><p><strong>Condição:</strong> ${escapeHtml(r.condicao_entrega||'—')}</p><p><strong>Endereço confirmado:</strong> ${escapeHtml(r.endereco_entrega||'—')}</p><p>${maps}</p><p><strong>Observações:</strong> ${escapeHtml(r.observacoes_entrega||'—')}</p><h4>Fotos da entrega</h4>${error?`<p class="error-cell">${escapeHtml(friendlyError(error))}</p>`:''}<div class="r-photo-grid">${signed.map(p=>p.url?`<a target="_blank" rel="noopener noreferrer" href="${escapeHtml(p.url)}"><img src="${escapeHtml(p.url)}" alt="${escapeHtml(p.legenda||'Foto da entrega')}" loading="lazy"></a>`:'<span>Foto indisponível</span>').join('')||'<p>Sem fotos anexadas.</p>'}</div></div>`;
+  }
 
   function closeDialog(id) { const dialog = $(id); if (dialog?.open) dialog.close(); }
 
