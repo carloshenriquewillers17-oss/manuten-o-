@@ -11,7 +11,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=12">
+  <link rel="stylesheet" href="styles.css?v=13">
   <title>DMV Engenharia | Gestão de Geradores</title>
 </head>
 <body>
@@ -93,7 +93,10 @@
         </section>
 
         <section id="page-abastecimentos" class="page hidden"><div class="section-toolbar"><div><h3>Abastecimentos</h3><p class="muted">Registro de litros, valores, local e horímetro.</p></div></div><div class="panel"><p class="muted">O formulário de abastecimento será disponibilizado em uma próxima atualização.</p></div></section>
-        <section id="page-alugueis" class="page hidden"><div class="section-toolbar"><div><h3>Locações</h3><p class="muted">Saída e retorno dos geradores.</p></div></div><div class="panel"><p class="muted">O formulário de locações será disponibilizado em uma próxima atualização.</p></div></section>
+        <section id="page-alugueis" class="page hidden">
+<div class="section-toolbar"><div><h3>Locações de geradores</h3><p class="muted">Administração cadastra as locações; técnicos registram a entrega com GPS, horímetro e fotos.</p></div><button id="r-new" class="btn btn-primary hidden" type="button">+ Nova locação</button></div>
+<div class="panel"><div class="table-tools"><input id="r-search" type="search" placeholder="Buscar máquina, cliente ou local..."></div><div class="table-scroll"><table><thead><tr><th>Máquina</th><th>Cliente</th><th>Período</th><th>Endereço</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="r-body"><tr><td colspan="6">Carregando...</td></tr></tbody></table></div></div>
+</section>
       </div>
     </section>
   </div>
@@ -208,8 +211,20 @@
   <dialog id="maintenance-detail-dialog" class="modal modal-wide"><div class="modal-content"><div class="modal-header"><div><span class="eyebrow">HISTÓRICO DA ORDEM DE SERVIÇO</span><h3 id="maintenance-detail-title">Detalhes da manutenção</h3></div><button type="button" class="icon-button" data-close-dialog="maintenance-detail-dialog">×</button></div><div id="maintenance-detail-content" class="maintenance-detail-content">Carregando...</div></div></dialog>
   <dialog id="photos-dialog" class="modal modal-wide"><div class="modal-content"><div class="modal-header"><div><span class="eyebrow">REGISTRO FOTOGRÁFICO</span><h3 id="photos-title">Fotos da manutenção</h3></div><button type="button" class="icon-button" data-close-dialog="photos-dialog">×</button></div><div id="photos-gallery" class="photo-gallery">Carregando fotos...</div></div></dialog>
 
+
+<dialog id="r-admin-dialog" class="modal modal-wide"><form id="r-admin-form">
+<div class="modal-header"><div><span class="eyebrow">ADMINISTRAÇÃO DMV</span><h3 id="r-admin-title">Nova locação</h3></div><button class="icon-button" type="button" data-close-dialog="r-admin-dialog">×</button></div>
+<div class="form-grid"><div><label>Gerador *</label><select id="r-generator" required></select></div><div><label>Cliente *</label><input id="r-client" required maxlength="180"></div><div><label>Data de saída *</label><input id="r-start" type="date" required></div><div><label>Previsão de retorno</label><input id="r-end" type="date"></div><div class="span-2"><label>Endereço previsto da obra</label><input id="r-address" maxlength="500"></div><div><label>Técnico responsável pela entrega</label><select id="r-tech"><option value="">Qualquer técnico autorizado</option></select></div><div><label>Situação</label><select id="r-status"><option value="ativa">Ativa</option><option value="encerrada">Encerrada</option></select></div><div class="span-2"><label>Observações administrativas</label><textarea id="r-notes" rows="2"></textarea></div></div>
+<p class="form-message error" id="r-admin-error"></p><div class="modal-actions"><button type="button" class="btn btn-outline" data-close-dialog="r-admin-dialog">Cancelar</button><button id="r-admin-save" class="btn btn-primary" type="submit">Salvar locação</button></div></form></dialog>
+<dialog id="r-delivery-dialog" class="modal modal-wide"><form id="r-delivery-form">
+<div class="modal-header"><div><span class="eyebrow">REGISTRO DE ENTREGA</span><h3 id="r-delivery-title">Entrega do gerador</h3></div><button type="button" class="icon-button" data-close-dialog="r-delivery-dialog">×</button></div>
+<p id="r-delivery-summary" class="muted"></p><div class="form-grid"><div><label>Horímetro na entrega *</label><input id="r-hours" type="number" min="0" step="0.1" required></div><div><label>Condição da máquina *</label><select id="r-condition" required><option value="boa">Boa</option><option value="com_ressalvas">Com ressalvas</option><option value="avaria">Com avaria</option></select></div>
+<div class="span-2"><button type="button" class="btn btn-outline" id="r-gps">📍 Capturar GPS automático</button><p class="muted small-text" id="r-gps-message">Permita o acesso à localização no celular. É necessário capturar o GPS antes de salvar.</p></div>
+<div><label>Latitude (GPS)</label><input id="r-lat" readonly required></div><div><label>Longitude (GPS)</label><input id="r-lng" readonly required></div><div class="span-2"><label>Endereço da entrega *</label><input id="r-delivery-address" maxlength="500" required placeholder="Endereço identificado pelo GPS ou informado manualmente"></div><div class="span-2"><label>Observações da entrega</label><textarea id="r-delivery-notes" rows="3"></textarea></div><div class="span-2"><label>Fotos da máquina (JPG, PNG ou WEBP; até 10 MB cada) *</label><input id="r-photos" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple required></div></div>
+<p class="form-message error" id="r-delivery-error"></p><div class="modal-actions"><button type="button" class="btn btn-outline" data-close-dialog="r-delivery-dialog">Cancelar</button><button id="r-delivery-save" class="btn btn-primary" type="submit">Finalizar entrega</button></div></form></dialog>
+<dialog id="r-detail-dialog" class="modal modal-wide"><div class="modal-content"><div class="modal-header"><h3>Detalhes da locação</h3><button class="icon-button" type="button" data-close-dialog="r-detail-dialog">×</button></div><div id="r-detail-content"></div></div></dialog>
   <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>
