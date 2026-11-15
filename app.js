@@ -823,12 +823,21 @@
   }
   async function openRentalAdmin(id = null) {
     if (!rentalAdmin()) return showToast('Somente administrador pode editar locações.','error');
-    await loadGenerators();
+    const [fleet, rentals] = await Promise.all([
+      db.from('geradores').select('id,numero,potencia_kva,situacao').order('numero'),
+      db.from('dmv_locacoes').select('*')
+    ]);
+    if(fleet.error || rentals.error) return showToast('Não foi possível verificar a disponibilidade. Tente novamente.','error');
+    rentalsCache = rentals.data || [];
     rentalEditingId=id;
     const r=rentalsCache.find(x=>x.id===id);
     $('r-admin-form').reset(); $('r-admin-error').textContent='';
     $('r-admin-title').textContent=r?'Editar locação':'Nova locação';
-    $('r-generator').innerHTML='<option value="">Selecione</option>'+generatorsCache.map(g=>`<option value="${escapeHtml(g.id)}">EA ${escapeHtml(g.numero)} · ${formatNumber(g.potencia_kva,0)} kVA</option>`).join('');
+    if(id && !r) return showToast('Locação não encontrada.','error');
+    const occupied = new Set(rentalsCache.filter(x=>x.situacao==='ativa' && x.id!==id).map(x=>x.gerador_id));
+    const available = (fleet.data||[]).filter(g=>g.id===r?.gerador_id || (g.situacao==='disponivel' && !occupied.has(g.id)));
+    $('r-admin-save').disabled=!available.length;
+    $('r-generator').innerHTML=`<option value="">${available.length?'Selecione':'Nenhum gerador disponível'}</option>`+available.map(g=>`<option value="${escapeHtml(g.id)}">EA ${escapeHtml(g.numero)} · ${formatNumber(g.potencia_kva,0)} kVA</option>`).join('');
     const {data:techs,error} = await db.from('perfis').select('id,nome').eq('papel','tecnico').eq('ativo',true).order('nome');
     if(error) showToast('Lista de técnicos indisponível; use a opção qualquer técnico autorizado.','error');
     $('r-tech').innerHTML='<option value="">Qualquer técnico autorizado</option>'+(techs||[]).map(t=>`<option value="${escapeHtml(t.id)}">${escapeHtml(t.nome)}</option>`).join('');
@@ -845,6 +854,16 @@
       const record={gerador_id:$('r-generator').value,cliente:$('r-client').value.trim(),data_saida:$('r-start').value,previsao_retorno:$('r-end').value||null,endereco_previsto:$('r-address').value.trim()||null,tecnico_designado:$('r-tech').value||null,situacao:$('r-status').value,observacoes_admin:$('r-notes').value.trim()||null};
       if(!record.gerador_id||!record.cliente||!record.data_saida) throw new Error('Preencha máquina, cliente e data de saída.');
       if(record.previsao_retorno && record.previsao_retorno<record.data_saida) throw new Error('Previsão de retorno anterior à saída.');
+      if(record.situacao==='ativa') {
+        const [fleet, rentals] = await Promise.all([
+          db.from('geradores').select('id,situacao').eq('id',record.gerador_id).single(),
+          db.from('dmv_locacoes').select('id,gerador_id,situacao').eq('gerador_id',record.gerador_id).eq('situacao','ativa')
+        ]);
+        if(fleet.error || rentals.error) throw new Error('Não foi possível verificar a disponibilidade. Tente novamente.');
+        if((rentals.data||[]).some(x=>x.id!==rentalEditingId)) throw new Error('Este gerador já possui uma locação ativa.');
+        const existing=rentalsCache.find(x=>x.id===rentalEditingId);
+        if(!(existing?.situacao==='ativa' && existing.gerador_id===record.gerador_id) && fleet.data?.situacao!=='disponivel') throw new Error('Este gerador não está disponível para locação.');
+      }
       const result=rentalEditingId?await db.from('dmv_locacoes').update(record).eq('id',rentalEditingId):await db.from('dmv_locacoes').insert({...record,criado_por:currentUser.id});
       if(result.error) throw result.error;
       closeDialog('r-admin-dialog'); await loadRentals(); showToast('Locação salva.','success');

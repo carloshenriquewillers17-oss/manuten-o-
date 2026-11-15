@@ -1,5 +1,5 @@
-const CACHE_NAME='dmv-geradores-pwa-v16';
-const APP_FILES=['./','./index.html','./styles.css?v=16','./app.js?v=16','./config.js','./manifest.json','./icon.svg','./apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-512-maskable.png'];
+const CACHE_NAME='dmv-geradores-pwa-v17';
+const APP_FILES=['./','./index.html','./styles.css?v=17','./app.js?v=17','./config.js','./manifest.json','./icon.svg','./apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-512-maskable.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_FILES.map(url=>new Request(url,{cache:'reload'})))).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('dmv-geradores-pwa-')&&k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
