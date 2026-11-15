@@ -120,7 +120,7 @@
     document.querySelectorAll('[data-goto]').forEach((button) => button.addEventListener('click', () => navigate(button.dataset.goto)));
     document.querySelectorAll('[data-close-dialog]').forEach((button) => button.addEventListener('click', () => closeDialog(button.dataset.closeDialog)));
 
-    $('add-generator-button').addEventListener('click', () => $('generator-dialog').showModal());
+    $('add-generator-button').addEventListener('click', () => { closeGeneratorDialog(); $('generator-dialog').showModal(); });
     $('close-generator-dialog').addEventListener('click', closeGeneratorDialog);
     $('cancel-generator').addEventListener('click', closeGeneratorDialog);
     $('generator-form').addEventListener('submit', saveGenerator);
@@ -223,7 +223,8 @@
     $('sidebar').classList.remove('open');
     try {
       if (page === 'geradores') await loadGenerators();
-      if (page === 'manutencoes') await loadMaintenance();
+      if (page === 'manutencoes') await Promise.all([loadMaintenance(),loadGenerators()]);
+      if (page === 'inicio') await loadGenerators();
       if (page === 'estoque') await loadParts();
       if (page === 'baterias') await loadBatteries();
       if (page === 'alugueis') await loadRentals();
@@ -285,34 +286,25 @@
     return first;
   }
 
-  function getPreventiveState(generator) {
-    const lastDate = generator.ultima_preventiva_em;
-    const lastHours = generator.ultima_preventiva_horimetro;
-    if (!lastDate && lastHours == null) return { level: 'unknown', label: 'Sem preventiva registrada', detail: 'Cadastre a última preventiva para iniciar o controle automático.' };
+  function getPreventiveState(g) {
+    const date = addMonthsLocal(g.ultima_preventiva_em, 6);
     const now = new Date(); now.setHours(0,0,0,0);
-    const dueDate = addMonthsLocal(lastDate, 6);
-    const daysLeft = dueDate ? Math.ceil((dueDate.getTime() - now.getTime()) / 86400000) : null;
-    const hoursDue = lastHours == null ? null : Number(lastHours) + 250;
-    const hoursLeft = hoursDue == null ? null : hoursDue - Number(generator.horimetro_atual || 0);
-    const byHours = hoursLeft != null && hoursLeft <= 0;
-    const byDate = daysLeft != null && daysLeft <= 0;
-    if (byHours || byDate) {
-      const why = [byHours ? 'limite de 250 horas atingido' : '', byDate ? 'limite de 6 meses atingido' : ''].filter(Boolean).join(' e ');
-      return { level: 'overdue', label: 'Preventiva vencida', detail: why };
-    }
-    if (daysLeft != null && daysLeft <= 15) return { level: 'soon', label: `Vence em ${daysLeft} dia(s)`, detail: `Data limite: ${dueDate.toLocaleDateString('pt-BR')}${hoursLeft != null ? ` · faltam ${formatNumber(Math.max(0,hoursLeft))} h para 250 horas` : ''}` };
-    const parts = [];
-    if (hoursLeft != null) parts.push(`faltam ${formatNumber(hoursLeft)} h`);
-    if (daysLeft != null) parts.push(`faltam ${daysLeft} dias`);
-    return { level: 'ok', label: 'Preventiva em dia', detail: parts.join(' · ') || 'Acompanhar horímetro e data da próxima preventiva.' };
+    const days = date ? Math.round((date-now)/86400000) : null;
+    const validHours = g.ultima_preventiva_horimetro != null && g.horimetro_atual != null && Number(g.horimetro_atual)>=Number(g.ultima_preventiva_horimetro);
+    const hours = validHours ? Number(g.ultima_preventiva_horimetro)+250-Number(g.horimetro_atual) : null;
+    const detail = [hours==null?'Horímetro a conferir':hours<0?`${formatNumber(-hours)} h excedidas`:`${formatNumber(hours)} h restantes`,days==null?'Data não cadastrada':days<0?`${-days} dias em atraso`:`${days} dias restantes`,date?`Limite: ${date.toLocaleDateString('pt-BR')}`:''].filter(Boolean).join(' · ');
+    if ((hours!=null&&hours<=0)||(days!=null&&days<=0)) return {level:'overdue',label:'Preventiva vencida',detail};
+    if (hours==null||days==null) return {level:'unknown',label:'Dados a conferir',detail};
+    if(hours<=50||days<=15) return {level:'soon',label:'Atenção',detail};
+    return {level:'ok',label:'Preventiva em dia',detail};
   }
-
   function renderPreventiveAlerts() {
-    const target = $('preventive-alerts'); if (!target) return;
-    if (!generatorsCache.length) { target.innerHTML = '<div class="empty-state">Cadastre os geradores para acompanhar as preventivas.</div>'; return; }
-    const due = generatorsCache.map((g) => ({ generator: g, state: getPreventiveState(g) })).filter((x) => x.state.level !== 'ok');
-    if (!due.length) { target.innerHTML = '<div class="preventive-good">Todas as preventivas estão dentro do prazo conforme os dados registrados.</div>'; return; }
-    target.innerHTML = due.map(({generator,state}) => `<div class="preventive-row ${state.level}"><div><strong>Gerador ${escapeHtml(generator.numero)}</strong><span>${escapeHtml(state.detail)}</span></div><b>${escapeHtml(state.label)}</b></div>`).join('');
+    const rows=generatorsCache.map(g=>({g,s:getPreventiveState(g)}));
+    const order={overdue:0,unknown:1,soon:2,ok:3}; rows.sort((a,b)=>order[a.s.level]-order[b.s.level]);
+    const target=$('preventive-alerts');
+    if(target) target.innerHTML=rows.map(({g,s})=>`<div class="preventive-row ${s.level}"><div><strong>EA ${escapeHtml(g.numero)} · ${formatNumber(g.potencia_kva,0)} kVA</strong><span>Atual: ${formatNumber(g.horimetro_atual)} h · Última preventiva: ${formatDate(g.ultima_preventiva_em)} / ${formatNumber(g.ultima_preventiva_horimetro)} h</span><span>${escapeHtml(s.detail)}</span></div><b>${escapeHtml(s.label)}</b></div>`).join('')||'Nenhum gerador cadastrado.';
+    const summary=$('preventive-summary');
+    if(summary) summary.innerHTML=Object.entries({overdue:'Vencidas',soon:'Atenção',ok:'Em dia',unknown:'A conferir'}).map(([k,v])=>`<div class="preventive-row ${k}"><strong>${v}</strong><b>${rows.filter(x=>x.s.level===k).length}</b></div>`).join('');
   }
 
   function openEditGenerator(id) {
@@ -321,7 +313,7 @@
     editingGeneratorId = id; $('generator-dialog-title').textContent = 'Editar gerador'; $('save-generator').textContent = 'Salvar alterações';
     $('g-number').value = g.numero ?? ''; $('g-power').value = g.potencia_kva ?? ''; $('g-brand').value = g.marca ?? ''; $('g-model').value = g.modelo ?? '';
     $('g-year').value = g.ano ?? ''; $('g-hours').value = g.horimetro_atual ?? 0; $('g-serial').value = g.numero_serie ?? ''; $('g-location').value = g.localizacao ?? ''; $('g-status').value = g.situacao ?? 'disponivel';
-    $('generator-error').textContent = ''; $('generator-dialog').showModal();
+    $('g-last-date').value = String(g.ultima_preventiva_em || '').slice(0,10); $('g-last-hours').value = g.ultima_preventiva_horimetro ?? ''; $('generator-error').textContent = ''; $('generator-dialog').showModal();
   }
   function closeGeneratorDialog() { closeDialog('generator-dialog'); $('generator-form').reset(); $('generator-error').textContent = ''; editingGeneratorId = null; $('generator-dialog-title').textContent = 'Novo gerador'; $('save-generator').textContent = 'Salvar gerador'; }
   async function saveGenerator(event) {
@@ -329,6 +321,12 @@
     const save = $('save-generator'); save.disabled = true; save.textContent = 'Salvando...'; $('generator-error').textContent = '';
     const record = { numero: $('g-number').value.trim(), potencia_kva: toNullableNumber($('g-power').value), marca: $('g-brand').value.trim() || null, modelo: $('g-model').value.trim() || null, ano: $('g-year').value.trim() || null, horimetro_atual: Number($('g-hours').value || 0), numero_serie: $('g-serial').value.trim() || null, localizacao: $('g-location').value.trim() || null, situacao: $('g-status').value };
     try {
+      record.ultima_preventiva_em = $('g-last-date').value || null;
+      record.ultima_preventiva_horimetro = toNullableNumber($('g-last-hours').value);
+      if (Boolean(record.ultima_preventiva_em) !== (record.ultima_preventiva_horimetro !== null)) throw new Error('Informe data e horímetro da última preventiva juntos.');
+      if(record.ultima_preventiva_em && (record.ultima_preventiva_em > todayISO() || record.ultima_preventiva_horimetro > record.horimetro_atual)) throw new Error('Confira a data e o horímetro da última preventiva.');
+      const previous=generatorsCache.find(g=>g.id===editingGeneratorId);
+      if(previous && record.horimetro_atual < Number(previous.horimetro_atual||0)) throw new Error('Horímetro menor que o atual. Confira a leitura.');
       const result = editingGeneratorId ? await db.from('geradores').update(record).eq('id', editingGeneratorId) : await db.from('geradores').insert(record);
       if (result.error) throw result.error;
       const wasEditing = Boolean(editingGeneratorId); closeGeneratorDialog(); await loadGenerators(); await refreshDashboard(); showToast(wasEditing ? 'Gerador atualizado.' : 'Gerador cadastrado.', 'success');
@@ -854,7 +852,7 @@
     $('r-delivery-address').value=r.endereco_previsto||'';
     const g=generatorsCache.find(x=>x.id===r.gerador_id);
     $('r-delivery-summary').textContent=`EA ${g?.numero||'—'} · ${r.cliente}`;
-    $('r-hours').value=g?.horimetro_atual??'';
+    $('r-hours').value=g?.horimetro_atual??''; $('r-hours').min=String(g?.horimetro_atual??0);
     $('r-delivery-dialog').showModal();
   }
   async function captureRentalGPS() {
@@ -895,7 +893,7 @@
         const row=await db.from('dmv_fotos_locacao').insert({locacao_id:rentalDeliveryId,caminho_storage:path,legenda:f.name,enviado_por:currentUser.id});
         if(row.error) failures.push(f.name+': '+friendlyError(row.error)); else uploaded++;
       }
-      closeDialog('r-delivery-dialog'); await loadRentals();
+      closeDialog('r-delivery-dialog'); await Promise.all([loadRentals(),loadGenerators()]);
       if(failures.length) showToast(`Entrega registrada, mas ${failures.length} foto(s) falharam. Avise o administrador.`, 'error');
       else showToast(`Entrega registrada com GPS e ${uploaded} foto(s).`,'success');
     } catch(err) {$('r-delivery-error').textContent=friendlyError(err);} finally {btn.disabled=false;}

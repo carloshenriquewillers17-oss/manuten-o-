@@ -11,7 +11,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=13">
+  <link rel="stylesheet" href="styles.css?v=15">
   <title>DMV Engenharia | Gestão de Geradores</title>
 </head>
 <body>
@@ -68,7 +68,7 @@
             <article class="stat-card"><span class="stat-label">Peças cadastradas</span><strong id="count-parts">—</strong><small>Itens do estoque</small></article>
             <article class="stat-card"><span class="stat-label">Baterias registradas</span><strong id="count-batteries">—</strong><small>Instaladas e em estoque</small></article>
           </div>
-          <div class="panel"><div class="panel-heading"><div><h3>Manutenções recentes</h3><p class="muted">Últimas ordens registradas no sistema.</p></div><button class="btn btn-outline" data-goto="manutencoes">Ver manutenções</button></div><div id="recent-maintenance" class="empty-state">Carregando registros...</div></div>
+          <div class="panel"><h3>Controle de preventivas</h3><div id="preventive-summary" class="preventive-alerts"></div><button class="btn btn-outline" data-goto="manutencoes">Ver todas as preventivas</button></div><div class="panel"><div class="panel-heading"><div><h3>Manutenções recentes</h3><p class="muted">Últimas ordens registradas no sistema.</p></div><button class="btn btn-outline" data-goto="manutencoes">Ver manutenções</button></div><div id="recent-maintenance" class="empty-state">Carregando registros...</div></div>
         </section>
 
         <section id="page-geradores" class="page hidden">
@@ -78,7 +78,7 @@
 
         <section id="page-manutencoes" class="page hidden">
           <div class="section-toolbar"><div><h3>Ordens de serviço</h3><p class="muted">Somente o administrador abre novas OS. O técnico apenas inicia uma ordem existente e finaliza o atendimento.</p></div><button id="add-maintenance-button" class="btn btn-primary hidden">+ Abrir nova OS</button></div><div id="maintenance-role-note" class="notice hidden">Acesso do técnico: aqui você consulta as ordens abertas pela administração. Toque em <strong>Iniciar OS</strong> para começar; depois registre o serviço, as fotos e o horímetro final e toque em <strong>Finalizar OS</strong>. Você não pode criar novas ordens nem alterar a solicitação original.</div>
-          <div class="panel preventive-panel"><div class="panel-heading"><div><h3>Preventivas da frota</h3><p class="muted">Intervalo de 250 horas ou 6 meses, o que ocorrer primeiro. Aviso 15 dias antes do limite por data.</p></div></div><div id="preventive-alerts" class="preventive-alerts"><div class="empty-state">Carregando situação das preventivas...</div></div></div>
+          <div class="panel preventive-panel"><div class="panel-heading"><div><h3>Preventivas da frota</h3><p class="muted">Intervalo de 250 horas ou 6 meses, o que ocorrer primeiro. Aviso com 50 horas ou 15 dias restantes.</p></div></div><div id="preventive-alerts" class="preventive-alerts"><div class="empty-state">Carregando situação das preventivas...</div></div></div>
           <div class="panel"><div class="table-tools"><input id="maintenance-search" type="search" placeholder="Buscar por OS, gerador ou descrição..."></div><div class="table-scroll"><table><thead><tr><th>OS</th><th>Gerador</th><th>Tipo</th><th>Data</th><th>Horímetro inicial / final</th><th>Status</th><th>Ações</th></tr></thead><tbody id="maintenance-body"><tr><td colspan="7" class="muted">Carregando...</td></tr></tbody></table></div></div>
         </section>
 
@@ -110,7 +110,7 @@
       <div><label for="g-model">Modelo</label><input id="g-model" placeholder="Modelo"></div>
       <div><label for="g-year">Ano</label><input id="g-year" placeholder="Ano"></div>
       <div><label for="g-hours">Horímetro atual</label><input id="g-hours" type="number" min="0" step="0.1" value="0"></div>
-      <div class="span-2"><label for="g-serial">Número de série</label><input id="g-serial" placeholder="Número de série do gerador"></div>
+      <div><label for="g-last-date">Data da última preventiva</label><input id="g-last-date" type="date"></div><div><label for="g-last-hours">Horímetro da última preventiva</label><input id="g-last-hours" type="number" min="0" step="any"></div><div class="span-2 muted tiny">Informe apenas preventivas confirmadas. Intervalo: 250 horas ou 6 meses.</div><div class="span-2"><label for="g-serial">Número de série</label><input id="g-serial" placeholder="Número de série do gerador"></div>
       <div class="span-2"><label for="g-location">Localização</label><input id="g-location" placeholder="Empresa, obra ou cliente"></div>
       <div><label for="g-status">Situação</label><select id="g-status"><option value="disponivel">Disponível</option><option value="alugado">Alugado</option><option value="em_manutencao">Em manutenção</option><option value="inativo">Inativo</option></select></div>
     </div>
@@ -225,6 +225,6 @@
 <dialog id="r-detail-dialog" class="modal modal-wide"><div class="modal-content"><div class="modal-header"><h3>Detalhes da locação</h3><button class="icon-button" type="button" data-close-dialog="r-detail-dialog">×</button></div><div id="r-detail-content"></div></div></dialog>
   <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=13"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>
