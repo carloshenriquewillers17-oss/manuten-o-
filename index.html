@@ -11,7 +11,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="styles.css?v=16">
   <title>DMV Engenharia | Gestão de Geradores</title>
 </head>
 <body>
@@ -56,7 +56,7 @@
       <header class="topbar">
         <button id="menu-button" class="icon-button mobile-only" aria-label="Abrir menu">☰</button>
         <div><span class="eyebrow">PAINEL DE CONTROLE</span><h2 id="page-title">Visão geral</h2></div>
-        <div class="user-area"><div class="user-avatar" id="user-avatar">D</div><div class="user-meta"><strong id="user-name">Usuário DMV</strong><small id="user-role">Usuário</small></div><button id="logout-button" class="btn btn-outline">Sair</button></div>
+        <div class="user-area"><button id="push-bell" class="btn btn-outline" aria-label="Notificações">🔔 <span id="push-count">0</span></button><div class="user-avatar" id="user-avatar">D</div><div class="user-meta"><strong id="user-name">Usuário DMV</strong><small id="user-role">Usuário</small></div><button id="logout-button" class="btn btn-outline">Sair</button></div>
       </header>
 
       <div class="content-area">
@@ -123,7 +123,7 @@
       <div><label for="m-generator">Gerador *</label><select id="m-generator" required></select></div>
       <div><label for="m-type">Tipo de manutenção *</label><select id="m-type"><option value="preventiva">Preventiva</option><option value="corretiva">Corretiva</option></select></div>
       <div><label for="m-hours">Horímetro inicial *</label><input id="m-hours" type="number" min="0" step="0.1" required></div>
-      <div><label for="m-date">Data de abertura</label><input id="m-date" type="date"></div>
+      <div><label for="m-tech">Técnico responsável</label><select id="m-tech"><option value="">Qualquer técnico autorizado</option></select></div><div><label for="m-date">Data de abertura</label><input id="m-date" type="date"></div>
       <div class="span-2"><label for="m-requested">O que precisa ser feito? *</label><textarea id="m-requested" rows="3" required placeholder="Ex.: realizar manutenção preventiva, trocar filtros, verificar vazamento, testar o gerador..."></textarea></div>
       <div class="span-2"><label for="m-suspected">Provável defeito / observação inicial</label><textarea id="m-suspected" rows="3" placeholder="Descreva o defeito informado ou a suspeita para o técnico verificar."></textarea></div>
     </div>
@@ -223,8 +223,9 @@
 <div><label>Latitude (GPS)</label><input id="r-lat" readonly required></div><div><label>Longitude (GPS)</label><input id="r-lng" readonly required></div><div class="span-2"><label>Endereço da entrega *</label><input id="r-delivery-address" maxlength="500" required placeholder="Endereço identificado pelo GPS ou informado manualmente"></div><div class="span-2"><label>Observações da entrega</label><textarea id="r-delivery-notes" rows="3"></textarea></div><div class="span-2"><label>Fotos da máquina (JPG, PNG ou WEBP; até 10 MB cada) *</label><input id="r-photos" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple required></div></div>
 <p class="form-message error" id="r-delivery-error"></p><div class="modal-actions"><button type="button" class="btn btn-outline" data-close-dialog="r-delivery-dialog">Cancelar</button><button id="r-delivery-save" class="btn btn-primary" type="submit">Finalizar entrega</button></div></form></dialog>
 <dialog id="r-detail-dialog" class="modal modal-wide"><div class="modal-content"><div class="modal-header"><h3>Detalhes da locação</h3><button class="icon-button" type="button" data-close-dialog="r-detail-dialog">×</button></div><div id="r-detail-content"></div></div></dialog>
+  <dialog id="push-dialog" class="modal"><div class="modal-content"><div class="modal-header"><h3>Notificações DMV</h3><button class="icon-button" data-close-dialog="push-dialog">×</button></div><button id="push-enable" class="btn btn-primary" type="button">Ativar notificações</button> <button id="push-disable" class="btn btn-outline" type="button">Desativar neste aparelho</button><p id="push-status" class="muted small-text" aria-live="polite"></p><div id="push-list"></div></div></dialog>
   <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

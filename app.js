@@ -107,6 +107,7 @@
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     });
     bindEvents();
+    bindPush();
     restoreSession();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
@@ -190,6 +191,7 @@
       showApp();
       await Promise.all([refreshDashboard(), loadGenerators(), loadParts(), loadBatteries(), loadMaintenance()]);
       applyRoleVisibility();
+      startPush();
     } catch (error) {
       await db.auth.signOut(); showLogin(); $('connection-label').textContent = 'Verifique a conexão';
       $('login-message').textContent = friendlyError(error); $('login-message').classList.add('error');
@@ -197,12 +199,13 @@
   }
 
   async function signOut() {
+    try { await disablePush(); } catch(e) { showToast("Não foi possível desativar as notificações. Tente sair novamente.", "error"); return; }
     const { error } = await db.auth.signOut();
     if (error) showToast(friendlyError(error), 'error');
     currentUser = null; currentProfile = null; showLogin();
   }
 
-  function showLogin() { $('app-shell').classList.add('hidden'); $('login-screen').classList.remove('hidden'); $('password').value = ''; }
+  function showLogin() { clearInterval(pushTimer); currentUser=null; currentProfile=null; if($('push-dialog').open) $('push-dialog').close(); $('push-list').textContent=''; $('push-count').textContent='0'; $('app-shell').classList.add('hidden'); $('login-screen').classList.remove('hidden'); $('password').value = ''; }
   function showApp() { $('login-screen').classList.add('hidden'); $('app-shell').classList.remove('hidden'); navigate('inicio'); }
   function applyRoleVisibility() {
     $('add-generator-button').classList.toggle('hidden', !canOpenMaintenance());
@@ -359,11 +362,15 @@
     }).join('') : '<tr><td colspan="7" class="empty-table">Nenhuma ordem de serviço cadastrada.</td></tr>';
   }
 
-  function openMaintenanceDialog() {
+  async function openMaintenanceDialog() {
     if (!canOpenMaintenance()) return showToast('Somente o administrador pode abrir uma ordem de serviço.', 'error');
     if (!generatorsCache.length) return showToast('Cadastre um gerador antes de abrir uma ordem de serviço.', 'error');
     $('maintenance-form').reset(); $('m-date').value = todayISO(); $('maintenance-error').textContent = '';
-    populateGeneratorSelects(); $('maintenance-dialog').showModal();
+    populateGeneratorSelects();
+    const {data:techs,error}=await db.from('perfis').select('id,nome').eq('papel','tecnico').eq('ativo',true).order('nome');
+    $('m-tech').innerHTML='<option value="">Qualquer técnico autorizado</option>'+(techs||[]).map(t=>`<option value="${escapeHtml(t.id)}">${escapeHtml(t.nome)}</option>`).join('');
+    if(error) showToast('Lista de técnicos indisponível.','error');
+    $('maintenance-dialog').showModal();
   }
 
   async function saveMaintenance(event) {
@@ -388,7 +395,7 @@
         defeito_provavel: suspected,
         servicos_realizados: null,
         observacoes: null,
-        tecnico_id: null,
+        tecnico_id: $('m-tech').value || null,
         created_by: currentUser.id
       };
       if (selectedDate) record.data_abertura = new Date(`${selectedDate}T12:00:00`).toISOString();
@@ -912,6 +919,62 @@
   }
 
   function closeDialog(id) { const dialog = $(id); if (dialog?.open) dialog.close(); }
+
+
+  let pushTimer;
+  const vapidPublic = 'BEvY1K996NaI-6fMu3caJfJkZtYIw5Pcr9DDbmELqCwPO-t0dn3sGtOL6cQuNT0XuRyqbfd__ojp0wPhjD8K4DU';
+  const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  async function pushRegistration() {
+    const reg=await navigator.serviceWorker.getRegistration('./');
+    if(!reg?.active) throw new Error('Aguarde a instalação do aplicativo e abra novamente.');
+    return reg;
+  }
+  function bindPush(){
+    $('push-bell').onclick=()=>{ $('push-dialog').showModal(); refreshPush(); };
+    $('push-enable').onclick=async()=>{
+      if(!pushSupported()) return $('push-status').textContent='No iPhone, instale na tela inicial e use iOS 16.4 ou superior.';
+      if(!currentUser) return;
+      const button=$('push-enable'); button.disabled=true;
+      const uid=currentUser.id;
+      try {
+        if(await Notification.requestPermission()!=='granted') throw new Error('Permita notificações nas configurações do aparelho.');
+        const reg=await pushRegistration();
+        let sub=await reg.pushManager.getSubscription();
+        // Novo endpoint evita reaproveitar inscrição de outra conta.
+        if(sub){ if(!await sub.unsubscribe()) throw new Error('Não foi possível renovar a inscrição.'); }
+        const raw=atob(vapidPublic.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-vapidPublic.length%4)%4));
+        sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:Uint8Array.from(raw,c=>c.charCodeAt(0))});
+        try {
+          if(currentUser?.id!==uid) throw new Error('Sessão alterada.');
+          const s=sub.toJSON();
+          const {error}=await db.from('dmv_push_dispositivos').upsert({usuario_id:uid,endpoint:s.endpoint,p256dh:s.keys.p256dh,auth_key:s.keys.auth,ativo:true},{onConflict:'endpoint'});
+          if(error) throw error;
+        } catch(e){await sub.unsubscribe();throw e;}
+        $('push-status').textContent='Notificações ativadas neste aparelho.';
+      } catch(e){$('push-status').textContent=friendlyError(e);} finally{button.disabled=false;}
+    };
+    $('push-disable').onclick=async()=>{try{await disablePush();$('push-status').textContent='Notificações desativadas neste aparelho.';}catch(e){$('push-status').textContent=friendlyError(e);}};
+  }
+  async function disablePush(){
+    if(!pushSupported()) return;
+    const reg=await navigator.serviceWorker.getRegistration('./');
+    const sub=await reg?.pushManager.getSubscription();
+    if(!sub) return;
+    if(currentUser) await db.from('dmv_push_dispositivos').update({ativo:false}).eq('usuario_id',currentUser.id).eq('endpoint',sub.endpoint);
+    if(!await sub.unsubscribe()) throw new Error('Não foi possível cancelar a inscrição.');
+  }
+  function startPush(){clearInterval(pushTimer);refreshPush();pushTimer=setInterval(refreshPush,30000);}
+  async function refreshPush(){
+    const uid=currentUser?.id;if(!uid)return;
+    try{
+      const [rows,count]=await Promise.all([db.from('dmv_notificacoes').select('id,titulo,mensagem,lida,created_at').eq('usuario_id',uid).order('created_at',{ascending:false}).limit(50),db.from('dmv_notificacoes').select('id',{count:'exact',head:true}).eq('usuario_id',uid).eq('lida',false)]);
+      if(currentUser?.id!==uid)return;
+      if(rows.error||count.error)throw rows.error||count.error;
+      $('push-count').textContent=count.count??0;
+      $('push-list').innerHTML=(rows.data||[]).map(n=>`<article class="push-item ${n.lida?'':'push-unread'}"><strong>${escapeHtml(n.titulo)}</strong><p>${escapeHtml(n.mensagem)}</p><small>${formatDate(n.created_at)}</small>${n.lida?'':` <button class="btn btn-outline" data-read="${escapeHtml(n.id)}">Marcar como lida</button>`}</article>`).join('')||'Nenhuma notificação.';
+      $('push-list').querySelectorAll('[data-read]').forEach(b=>b.onclick=async()=>{const {error}=await db.from('dmv_notificacoes').update({lida:true}).eq('id',b.dataset.read).eq('usuario_id',uid);if(error)showToast(friendlyError(error),'error');else refreshPush();});
+    }catch(e){if(currentUser?.id===uid)$('push-list').textContent=friendlyError(e);}
+  }
 
   init();
 })();
